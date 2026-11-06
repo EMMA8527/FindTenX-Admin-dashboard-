@@ -7,13 +7,11 @@ import { BrandLogo } from "@/components/brand/logo";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-const DEMO_PASSWORD = "FindTenX@Admin2026";
-const DEMO_MFA_CODE = "482916";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("emma@findtenx.com");
-  const [password, setPassword] = useState(DEMO_PASSWORD);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [mfaCode, setMfaCode] = useState("");
   const [requiresMfa, setRequiresMfa] = useState(false);
@@ -115,17 +113,18 @@ export default function LoginPage() {
 
             {requiresMfa ? (
               <div className="space-y-2 rounded-2xl border border-brand-pink/30 bg-brand-pink/5 p-4">
-                <Label htmlFor="mfa">Multi-factor authentication code</Label>
+                <Label htmlFor="mfa">Authenticator code</Label>
                 <Input
                   id="mfa"
                   inputMode="numeric"
+                  autoComplete="one-time-code"
                   placeholder="6-digit code"
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value)}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Demo MFA code: <span className="font-medium text-foreground">{DEMO_MFA_CODE}</span>
+                  Enter the code from your authenticator app.
                 </p>
               </div>
             ) : null}
@@ -155,12 +154,6 @@ export default function LoginPage() {
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
-
-          <div className="mt-6 rounded-2xl bg-secondary/60 p-4 text-xs text-muted-foreground">
-            <p className="font-medium text-foreground">Demo access</p>
-            <p className="mt-1">emma@findtenx.com · {DEMO_PASSWORD}</p>
-            <p>MFA: {DEMO_MFA_CODE}</p>
-          </div>
         </div>
       </div>
     </div>

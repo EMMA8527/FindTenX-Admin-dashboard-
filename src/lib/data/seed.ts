@@ -18,9 +18,6 @@ import type {
   VerificationSubmission,
 } from "@/lib/types";
 
-export const DEMO_PASSWORD = "FindTenX@Admin2026";
-export const DEMO_MFA_CODE = "482916";
-
 export const admins: AdminUser[] = [
   {
     id: "adm_001",

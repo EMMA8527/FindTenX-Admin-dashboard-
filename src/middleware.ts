@@ -2,19 +2,29 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const publicPaths = ["/login", "/forgot-password"];
+const SESSION_COOKIE = "ftx_admin_session";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const session = request.cookies.get(SESSION_COOKIE)?.value;
+
+  if (pathname.startsWith("/api/")) {
+    if (pathname === "/api/auth/login" || pathname.startsWith("/api/auth/login/")) {
+      return NextResponse.next();
+    }
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
   const isPublic =
     publicPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/brand") ||
-    pathname.startsWith("/api/auth/login") ||
     pathname.includes(".");
 
-  const session = request.cookies.get("ftx_admin_session")?.value;
-
-  if (!session && !isPublic && !pathname.startsWith("/api/")) {
+  if (!session && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);

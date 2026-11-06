@@ -1,13 +1,14 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { admins, DEMO_MFA_CODE, DEMO_PASSWORD } from "@/lib/data/seed";
+import { AuthConfigError, getAuthConfig } from "@/lib/auth/config";
+import { verifyTotpCode } from "@/lib/auth/mfa";
+import { verifyPassword } from "@/lib/auth/password";
 import { appendAudit, getStore } from "@/lib/data/store";
 import type { AdminRole, AdminUser } from "@/lib/types";
 
-const COOKIE = "ftx_admin_session";
-const secret = new TextEncoder().encode(
-  process.env.ADMIN_SESSION_SECRET ?? "findtenx-admin-dev-secret-change-me",
-);
+export const SESSION_COOKIE = "ftx_admin_session";
+const SESSION_TTL_SECONDS = 60 * 60 * 8;
+const REMEMBER_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 export type SessionPayload = {
   sub: string;
@@ -17,7 +18,24 @@ export type SessionPayload = {
   avatar: string;
 };
 
-export async function createSession(admin: AdminUser) {
+export type AuthResult =
+  | { ok: true; admin: AdminUser }
+  | { ok: false; requiresMfa: true }
+  | { ok: false; error: string; status?: number };
+
+function cookieOptions(maxAge: number) {
+  return {
+    httpOnly: true as const,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge,
+  };
+}
+
+export async function createSession(admin: AdminUser, remember = false) {
+  const { sessionSecret } = getAuthConfig();
+  const maxAge = remember ? REMEMBER_TTL_SECONDS : SESSION_TTL_SECONDS;
   const token = await new SignJWT({
     email: admin.email,
     name: admin.name,
@@ -27,30 +45,26 @@ export async function createSession(admin: AdminUser) {
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(admin.id)
     .setIssuedAt()
-    .setExpirationTime("8h")
-    .sign(secret);
+    .setExpirationTime(`${maxAge}s`)
+    .sign(sessionSecret);
 
   const jar = await cookies();
-  jar.set(COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 8,
-  });
+  jar.set(SESSION_COOKIE, token, cookieOptions(maxAge));
 }
 
 export async function destroySession() {
   const jar = await cookies();
-  jar.delete(COOKIE);
+  jar.set(SESSION_COOKIE, "", { ...cookieOptions(0), maxAge: 0 });
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
   const jar = await cookies();
-  const token = jar.get(COOKIE)?.value;
+  const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
+
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { sessionSecret } = getAuthConfig();
+    const { payload } = await jwtVerify(token, sessionSecret);
     return {
       sub: String(payload.sub),
       email: String(payload.email),
@@ -58,7 +72,8 @@ export async function getSession(): Promise<SessionPayload | null> {
       role: payload.role as AdminRole,
       avatar: String(payload.avatar),
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthConfigError) return null;
     return null;
   }
 }
@@ -69,13 +84,31 @@ export async function requireSession() {
   return session;
 }
 
-export function authenticateAdmin(email: string, password: string, mfaCode?: string) {
+export async function authenticateAdmin(
+  email: string,
+  password: string,
+  mfaCode?: string,
+): Promise<AuthResult> {
+  let config;
+  try {
+    config = getAuthConfig();
+  } catch (error) {
+    const message =
+      error instanceof AuthConfigError
+        ? error.message
+        : "Authentication is not configured.";
+    return { ok: false, error: message, status: 503 };
+  }
+
   const store = getStore();
   const admin = store.admins.find(
     (a) => a.email.toLowerCase() === email.toLowerCase() && a.status === "active",
   );
 
-  if (!admin || password !== DEMO_PASSWORD) {
+  // Always verify against the configured hash to reduce email-enumeration timing gaps.
+  const passwordOk = await verifyPassword(password, config.passwordHash);
+
+  if (!admin || !passwordOk) {
     appendAudit({
       adminId: "unknown",
       adminName: email || "Unknown",
@@ -86,14 +119,14 @@ export function authenticateAdmin(email: string, password: string, mfaCode?: str
       reason: "Invalid credentials",
       ip: "127.0.0.1",
     });
-    return { ok: false as const, error: "Invalid email or password." };
+    return { ok: false, error: "Invalid email or password." };
   }
 
   if (admin.mfaEnabled) {
     if (!mfaCode) {
-      return { ok: false as const, requiresMfa: true as const };
+      return { ok: false, requiresMfa: true };
     }
-    if (mfaCode !== DEMO_MFA_CODE) {
+    if (!verifyTotpCode(config.mfaSecret, mfaCode)) {
       appendAudit({
         adminId: admin.id,
         adminName: admin.name,
@@ -104,7 +137,7 @@ export function authenticateAdmin(email: string, password: string, mfaCode?: str
         reason: "Invalid MFA code",
         ip: "127.0.0.1",
       });
-      return { ok: false as const, error: "Invalid authentication code." };
+      return { ok: false, error: "Invalid authentication code." };
     }
   }
 
@@ -120,7 +153,22 @@ export function authenticateAdmin(email: string, password: string, mfaCode?: str
     ip: "127.0.0.1",
   });
 
-  return { ok: true as const, admin };
+  return { ok: true, admin };
 }
 
-export { COOKIE, DEMO_MFA_CODE, DEMO_PASSWORD, admins };
+/** Verify a raw JWT with the configured secret (used by security tests). */
+export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
+  try {
+    const { sessionSecret } = getAuthConfig();
+    const { payload } = await jwtVerify(token, sessionSecret);
+    return {
+      sub: String(payload.sub),
+      email: String(payload.email),
+      name: String(payload.name),
+      role: payload.role as AdminRole,
+      avatar: String(payload.avatar),
+    };
+  } catch {
+    return null;
+  }
+}
