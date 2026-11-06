@@ -104,8 +104,8 @@ export function OverviewDashboard({
               <p className="text-sm text-muted-foreground">New registrations over the selected period</p>
             </div>
           </div>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-72 w-full min-h-[18rem]">
+            <ResponsiveContainer width="100%" height={288} minWidth={0}>
               <AreaChart data={growth}>
                 <defs>
                   <linearGradient id="growthFill" x1="0" y1="0" x2="0" y2="1">
@@ -132,8 +132,8 @@ export function OverviewDashboard({
         <div className="glass-card p-5 animate-fade-up" style={{ animationDelay: "160ms" }}>
           <h2 className="text-base font-semibold">User Distribution</h2>
           <p className="mb-2 text-sm text-muted-foreground">Aggregate demographics</p>
-          <div className="relative h-56">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="relative h-56 w-full">
+            <ResponsiveContainer width="100%" height={224} minWidth={0}>
               <PieChart>
                 <Pie data={genderData} dataKey="value" innerRadius={58} outerRadius={84} paddingAngle={3}>
                   {genderData.map((entry, index) => (
@@ -193,8 +193,8 @@ export function OverviewDashboard({
         <div className="glass-card p-5 animate-fade-up">
           <h2 className="mb-1 text-base font-semibold">Matches & Engagement</h2>
           <p className="mb-4 text-sm text-muted-foreground">Likes vs matches by month</p>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height={224} minWidth={0}>
               <BarChart data={engagement}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
                 <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -216,8 +216,8 @@ export function OverviewDashboard({
         <div className="glass-card p-5 animate-fade-up">
           <h2 className="mb-1 text-base font-semibold">Revenue Overview</h2>
           <p className="mb-4 text-sm text-muted-foreground">Subscription and platform revenue</p>
-          <div className="h-40">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-40 w-full">
+            <ResponsiveContainer width="100%" height={160} minWidth={0}>
               <AreaChart data={revenue}>
                 <defs>
                   <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">

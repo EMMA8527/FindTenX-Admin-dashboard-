@@ -4,7 +4,6 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand/logo";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -148,13 +147,13 @@ export default function LoginPage() {
               </p>
             ) : null}
 
-            <Button
+            <button
               type="submit"
               disabled={loading}
-              className="h-11 w-full brand-gradient border-0 text-white shadow-lg shadow-pink-500/20"
+              className="inline-flex h-11 w-full items-center justify-center rounded-lg brand-gradient border-0 text-sm font-medium text-white shadow-lg shadow-pink-500/20 transition hover:opacity-95 disabled:opacity-50"
             >
               {loading ? "Signing in..." : "Sign in"}
-            </Button>
+            </button>
           </form>
 
           <div className="mt-6 rounded-2xl bg-secondary/60 p-4 text-xs text-muted-foreground">
