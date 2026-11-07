@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { can } from "@/lib/permissions";
-import { updateUserStatus } from "@/lib/data/store";
+import { updateUserStatusInDb } from "@/lib/db/queries";
 import type { AccountStatus } from "@/lib/types";
 
 export async function POST(
@@ -25,7 +25,7 @@ export async function POST(
     );
   }
 
-  const user = updateUserStatus(
+  const user = updateUserStatusInDb(
     id,
     body.status,
     { id: session.sub, name: session.name, role: session.role },

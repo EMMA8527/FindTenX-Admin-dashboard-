@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
 import { ModuleToolbar } from "@/components/shared/module-toolbar";
@@ -16,46 +16,58 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { users as seedUsers } from "@/lib/data/seed";
 import { formatDate, maskPhone } from "@/lib/format";
+import type { PlatformUser } from "@/lib/types";
 
 export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [users, setUsers] = useState<PlatformUser[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const filtered = useMemo(() => {
-    return seedUsers.filter((user) => {
-      const q = search.toLowerCase();
-      const matchesSearch =
-        !q ||
-        user.id.toLowerCase().includes(q) ||
-        user.fullName.toLowerCase().includes(q) ||
-        user.email.toLowerCase().includes(q) ||
-        user.phone.includes(q) ||
-        user.country.toLowerCase().includes(q) ||
-        user.city.toLowerCase().includes(q);
-
-      const matchesFilter =
-        filter === "all" ||
-        (filter === "active" && user.accountStatus === "active") ||
-        (filter === "inactive" && user.accountStatus === "inactive") ||
-        (filter === "verified" && user.verificationStatus === "verified") ||
-        (filter === "unverified" && user.verificationStatus !== "verified") ||
-        (filter === "premium" && user.membership === "premium") ||
-        (filter === "free" && user.membership === "free") ||
-        (filter === "suspended" && user.accountStatus === "suspended") ||
-        (filter === "banned" && user.accountStatus === "banned") ||
-        (filter === "pending_deletion" && user.accountStatus === "pending_deletion");
-
-      return matchesSearch && matchesFilter;
-    });
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const params = new URLSearchParams();
+        if (search) params.set("q", search);
+        if (filter === "active" || filter === "inactive" || filter === "suspended" || filter === "banned" || filter === "pending_deletion") {
+          params.set("status", filter);
+        }
+        if (filter === "verified") params.set("verification", "verified");
+        if (filter === "unverified") params.set("verification", "unverified");
+        if (filter === "premium" || filter === "free") params.set("membership", filter);
+        const res = await fetch(`/api/admin/users?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to load users");
+        setUsers(data.users);
+        setTotal(data.total);
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") {
+          setError((e as Error).message);
+          setUsers([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }, 200);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [search, filter]);
 
   return (
     <div>
       <PageHeader
         title="User Management"
-        description="Search, filter, and manage registered FindTenX accounts."
+        description={`Search and manage registered FindTenX accounts (${total} in database).`}
       />
       <div className="glass-card p-4 md:p-5">
         <ModuleToolbar
@@ -78,7 +90,11 @@ export default function UsersPage() {
           ]}
         />
 
-        {filtered.length === 0 ? (
+        {error ? (
+          <EmptyState title="Unable to load users" description={error} />
+        ) : loading ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Loading users from database…</p>
+        ) : users.length === 0 ? (
           <EmptyState title="No users found matching your search." />
         ) : (
           <div className="overflow-x-auto">
@@ -97,7 +113,7 @@ export default function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((user) => (
+                {users.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">

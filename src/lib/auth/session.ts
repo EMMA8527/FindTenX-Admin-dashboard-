@@ -5,7 +5,8 @@ import { AuthConfigError, getAuthConfig } from "@/lib/auth/config";
 import { verifyTotpCode } from "@/lib/auth/mfa";
 import { verifyPassword } from "@/lib/auth/password";
 import { isSessionRevoked, revokeSession } from "@/lib/auth/revocation";
-import { appendAudit, getStore } from "@/lib/data/store";
+import { findAdminByEmail, touchAdminLogin, writeAudit } from "@/lib/db/queries";
+import { assertDbReady } from "@/lib/db/bootstrap";
 import type { AdminRole, AdminUser } from "@/lib/types";
 
 export const SESSION_COOKIE = "ftx_admin_session";
@@ -126,16 +127,27 @@ export async function authenticateAdmin(
     return { ok: false, error: message, status: 503 };
   }
 
-  const store = getStore();
-  const admin = store.admins.find(
-    (a) => a.email.toLowerCase() === email.toLowerCase() && a.status === "active",
-  );
+  assertDbReady();
+  const row = findAdminByEmail(email);
+  const admin: AdminUser | null = row
+    ? {
+        id: row.id,
+        email: row.email,
+        name: row.name,
+        role: row.role as AdminRole,
+        avatar: row.avatar,
+        mfaEnabled: row.mfaEnabled,
+        status: row.status as AdminUser["status"],
+        lastLoginAt: row.lastLoginAt ?? "",
+        createdAt: row.createdAt,
+      }
+    : null;
 
   // Always verify against the configured hash to reduce email-enumeration timing gaps.
   const passwordOk = await verifyPassword(password, config.passwordHash);
 
   if (!admin || !passwordOk) {
-    appendAudit({
+    writeAudit({
       adminId: "unknown",
       adminName: email || "Unknown",
       adminRole: "support",
@@ -153,7 +165,7 @@ export async function authenticateAdmin(
       return { ok: false, requiresMfa: true };
     }
     if (!verifyTotpCode(config.mfaSecret, mfaCode)) {
-      appendAudit({
+      writeAudit({
         adminId: admin.id,
         adminName: admin.name,
         adminRole: admin.role,
@@ -167,8 +179,8 @@ export async function authenticateAdmin(
     }
   }
 
-  admin.lastLoginAt = new Date().toISOString();
-  appendAudit({
+  touchAdminLogin(admin.id);
+  writeAudit({
     adminId: admin.id,
     adminName: admin.name,
     adminRole: admin.role,

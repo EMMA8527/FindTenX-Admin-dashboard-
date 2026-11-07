@@ -9,9 +9,18 @@ export function middleware(request: NextRequest) {
   const session = request.cookies.get(SESSION_COOKIE)?.value;
 
   if (pathname.startsWith("/api/")) {
-    if (pathname === "/api/auth/login" || pathname.startsWith("/api/auth/login/")) {
-      return NextResponse.next();
-    }
+    const publicApi =
+      pathname === "/api/auth/login" ||
+      pathname.startsWith("/api/auth/login/") ||
+      pathname === "/api/admin/auth/login" ||
+      pathname.startsWith("/api/admin/auth/login/") ||
+      pathname === "/api/admin/auth/mfa/verify" ||
+      pathname.startsWith("/api/admin/auth/mfa/verify/") ||
+      pathname === "/api/admin/auth/password/reset" ||
+      pathname.startsWith("/api/admin/auth/password/reset/") ||
+      pathname === "/api/admin/health" ||
+      pathname.startsWith("/api/admin/health/");
+    if (publicApi) return NextResponse.next();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

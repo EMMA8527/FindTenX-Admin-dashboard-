@@ -52,17 +52,37 @@ Open [http://localhost:3456](http://localhost:3456).
 
 Sign in with an active administrator email from the staff directory (for example the seeded Super Administrator account), the bootstrap password from secret generation, and a current TOTP code.
 
-## Backend integration
+## Data layer
 
-This repository ships with a local operations data store and API routes so the dashboard is usable before the mobile backend is connected.
+The admin app persists operational data in SQLite by default (`./data/findtenx-admin.sqlite`, gitignored).
 
-Point production traffic at the FindTenX backend by setting:
+- First boot runs migrations and a one-time bootstrap into the DB.
+- Overview and Users modules read/write the database via `/api/admin/*`.
+- Set `DATABASE_URL=file:/path/to.db` or `FTX_SQLITE_PATH` to relocate the file.
+
+### FindTenX Core integration (required for true production)
+
+This agent currently **cannot clone** `findtenx-core` / `findtenx-data` (Origin token 403). When access is granted, set:
 
 ```bash
-FINDTENX_API_URL=https://api.findtenx.example
+FINDTENX_API_URL=https://your-findtenx-core-api
 ```
 
-Server-side authorization, audit logging, and permission checks must remain on the backend. Frontend permission checks are UX only.
+and replace local bootstrap with Core sync. Do not treat the local bootstrap dataset as production customer truth.
+
+## Admin APIs
+
+- `POST /api/admin/auth/login`
+- `POST /api/admin/auth/logout`
+- `GET /api/admin/auth/me`
+- `POST /api/admin/auth/mfa/verify`
+- `POST|PUT /api/admin/auth/password/reset`
+- `GET /api/admin/overview`
+- `GET /api/admin/users`
+- `GET|PATCH /api/admin/users/:id`
+- `GET /api/admin/verification`
+- `GET /api/admin/reports`
+- `GET /api/admin/health`
 
 ## Product restrictions
 

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { destroySession, getSession } from "@/lib/auth/session";
-import { appendAudit } from "@/lib/data/store";
+import { writeAudit } from "@/lib/db/queries";
+import { assertDbReady } from "@/lib/db/bootstrap";
 
 export async function POST() {
+  assertDbReady();
   const session = await getSession();
   if (session) {
-    appendAudit({
+    writeAudit({
       adminId: session.sub,
       adminName: session.name,
       adminRole: session.role,
