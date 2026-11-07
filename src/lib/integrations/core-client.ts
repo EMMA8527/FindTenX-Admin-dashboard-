@@ -8,14 +8,16 @@ export type CoreProbe = {
   reachable: boolean;
   authenticated: boolean | null;
   baseUrl: string | null;
+  canonicalProductionUrl: string;
   checkedPaths: Array<{ path: string; status: number; ok: boolean; error?: string; latencyMs: number }>;
   message: string;
   checkedAt: string;
 };
 
 /**
- * Probe FindTenX Core without assuming a specific OpenAPI shape.
- * Tries a small set of common health/admin endpoints and reports real results only.
+ * Probe FindTenX Core using the documented health route first:
+ *   GET /api/v1/health  → { ok, service: "findtenx-core", database }
+ * Reports real DNS/HTTP results only — never synthesizes success.
  */
 export async function probeFindtenxCore(): Promise<CoreProbe> {
   const config = getCoreConfig();
@@ -29,14 +31,16 @@ export async function probeFindtenxCore(): Promise<CoreProbe> {
       reachable: false,
       authenticated: null,
       baseUrl: null,
+      canonicalProductionUrl: config.canonicalProductionUrl,
       checkedPaths: [],
       message:
-        "FINDTENX_API_URL is not configured. Core is the authoritative platform backend — platform modules cannot sync until it is set and reachable.",
+        `FINDTENX_API_URL is not configured. Set it to the production Core host (${config.canonicalProductionUrl}) once DNS resolves and Core is deployed.`,
       checkedAt,
     };
   }
 
-  const candidates = ["/health", "/api/health", "/admin/health", "/api/admin/health", "/"];
+  // Prefer the documented Core health path; keep a short fallback list for older deploys.
+  const candidates = ["/api/v1/health", "/health", "/api/health"];
   const checkedPaths: CoreProbe["checkedPaths"] = [];
   let reachable = false;
   let authenticated: boolean | null = null;
@@ -64,14 +68,16 @@ export async function probeFindtenxCore(): Promise<CoreProbe> {
 
   let message: string;
   if (!reachable) {
-    message = "Core base URL is set but no health endpoint responded (network/DNS/TLS or wrong host).";
+    message =
+      "Core base URL is set but unreachable (DNS/TLS/network). Confirmed NXDOMAIN for api.findtenx.app until DNS is provisioned.";
   } else if (authenticated === false) {
-    message = "Core is reachable but rejected admin credentials (check FINDTENX_ADMIN_API_KEY).";
+    message =
+      "Core is reachable but rejected credentials. FindTenX-Core currently uses user JWT Bearer auth; an admin API-key scheme is not yet exposed in Core.";
   } else if (checkedPaths.some((p) => p.ok)) {
     message = "Core responded successfully to at least one probe path.";
   } else {
     message =
-      "Core host responded but no known health path succeeded. Grant Origin access to findtenx-core so the exact admin routes can be mapped.";
+      "Core host responded but /api/v1/health (and fallbacks) did not succeed. Map admin routes after Core admin APIs exist.";
   }
 
   return {
@@ -81,6 +87,7 @@ export async function probeFindtenxCore(): Promise<CoreProbe> {
     reachable,
     authenticated,
     baseUrl: config.baseUrl,
+    canonicalProductionUrl: config.canonicalProductionUrl,
     checkedPaths,
     message,
     checkedAt,

@@ -18,12 +18,13 @@ type CoreOverviewResult =
  * honestly — never synthesize production figures.
  */
 export async function tryFetchCoreOverview(): Promise<CoreOverviewResult> {
+  // FindTenX-Core (cursor/core-api-3f74) exposes /api/v1/* user APIs only —
+  // no admin overview route yet. Probe provisional admin paths; accept only
+  // recognizable metrics JSON. Never synthesize production figures.
   const candidates = [
+    "/api/v1/admin/overview",
     "/api/admin/overview",
     "/admin/overview",
-    "/api/admin/metrics",
-    "/api/metrics/overview",
-    "/v1/admin/overview",
   ];
 
   const errors: string[] = [];

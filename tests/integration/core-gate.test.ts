@@ -72,4 +72,23 @@ describe("platform integration gate", () => {
     expect(probe.reachable).toBe(false);
     expect(probe.checkedPaths.some((p) => p.ok)).toBe(false);
   });
+
+  it("does not treat Core URL/key as FindTenX Data credentials", async () => {
+    process.env.FINDTENX_API_URL = "https://api.findtenx.app";
+    process.env.FINDTENX_ADMIN_API_KEY = "core-only-key";
+    delete process.env.FINDTENX_DATA_API_URL;
+    delete process.env.FINDTENX_DATA_API_KEY;
+
+    const { getDataConfig } = await import("@/lib/integrations/config");
+    const { probeFindtenxData } = await import("@/lib/integrations/data-client");
+    const cfg = getDataConfig();
+    expect(cfg.configured).toBe(false);
+    expect(cfg.baseUrl).toBeNull();
+    expect(cfg.apiKeyConfigured).toBe(false);
+
+    const probe = await probeFindtenxData();
+    expect(probe.configured).toBe(false);
+    expect(probe.reachable).toBe(false);
+  });
 });
+

@@ -306,7 +306,7 @@ export function getDataSourceMeta() {
   return {
     source: row?.value ?? "unknown",
     findtenxApiConfigured: Boolean(process.env.FINDTENX_API_URL),
-    findtenxDataConfigured: Boolean(process.env.FINDTENX_DATA_API_URL || process.env.FINDTENX_API_URL),
+    findtenxDataConfigured: Boolean(process.env.FINDTENX_DATA_API_URL),
     platformDataMode: mode === "local_dev" ? "local_dev" : "core",
     productionAuthority: "findtenx-core",
   };

@@ -12,6 +12,10 @@ export type DataProbe = {
   checkedAt: string;
 };
 
+/**
+ * Probe FindTenX Data only when FINDTENX_DATA_API_URL is set explicitly.
+ * Does not fall back to Core — Data is a separate system.
+ */
 export async function probeFindtenxData(): Promise<DataProbe> {
   const config = getDataConfig();
   const checkedAt = new Date().toISOString();
@@ -25,12 +29,12 @@ export async function probeFindtenxData(): Promise<DataProbe> {
       baseUrl: null,
       checkedPaths: [],
       message:
-        "FINDTENX_DATA_API_URL (or FINDTENX_API_URL fallback) is not configured. Analytics/reporting should use FindTenX Data when available.",
+        "FINDTENX_DATA_API_URL is not configured. findtenx-data has no published production hostname yet — do not reuse FINDTENX_API_URL as Data.",
       checkedAt,
     };
   }
 
-  const candidates = ["/health", "/api/health", "/analytics/health", "/"];
+  const candidates = ["/health", "/api/health", "/api/v1/health", "/analytics/health", "/"];
   const checkedPaths: DataProbe["checkedPaths"] = [];
   let reachable = false;
 
