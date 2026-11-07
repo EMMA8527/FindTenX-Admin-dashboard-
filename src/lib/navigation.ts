@@ -6,12 +6,17 @@ import {
   Compass,
   CreditCard,
   Crown,
+  FileText,
+  Gift,
   Handshake,
   Heart,
   LayoutDashboard,
+  Link2,
+  Mail,
   MessageSquare,
   Settings,
   Shield,
+  ShieldAlert,
   Sparkles,
   Ticket,
   UserRound,
@@ -63,10 +68,22 @@ export const navItems: NavItem[] = [
     permission: "payments.view",
   },
   {
+    title: "Referrals & Rewards",
+    href: "/referrals",
+    icon: Gift,
+    permission: "referrals.view",
+  },
+  {
     title: "Notifications Centre",
     href: "/notifications",
     icon: Bell,
     permission: "notifications.view",
+  },
+  {
+    title: "Email / SMS / Push",
+    href: "/communications",
+    icon: Mail,
+    permission: "communications.view",
   },
   {
     title: "Promotions & Marketing",
@@ -80,6 +97,18 @@ export const navItems: NavItem[] = [
     icon: Ticket,
     permission: "support.view",
     badgeKey: "support",
+  },
+  {
+    title: "Fraud & Security Ops",
+    href: "/fraud",
+    icon: ShieldAlert,
+    permission: "fraud.view",
+  },
+  {
+    title: "Website Content",
+    href: "/content",
+    icon: FileText,
+    permission: "content.view",
   },
   {
     title: "Analytics & Reports",
@@ -104,6 +133,12 @@ export const navItems: NavItem[] = [
     href: "/security",
     icon: Activity,
     permission: "security.view",
+  },
+  {
+    title: "API & Integrations",
+    href: "/integrations",
+    icon: Link2,
+    permission: "integrations.view",
   },
 ];
 

@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Heart, Handshake } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { IntegrationBanner } from "@/components/shared/integration-banner";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { ModuleToolbar } from "@/components/shared/module-toolbar";
+import { ModuleStatus } from "@/components/shared/module-status";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,17 +22,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { likes, matches as seedMatches, overviewMetrics } from "@/lib/data/seed";
-import { formatDateTime, formatNumber } from "@/lib/format";
+import { useCatalog } from "@/hooks/use-catalog";
+import { formatDateTime } from "@/lib/format";
+import type { LikeRecord, MatchRecord } from "@/lib/types";
 
 export default function LikesMatchesPage() {
-  const [matches, setMatches] = useState(seedMatches);
+  const matchesCatalog = useCatalog<{ items: MatchRecord[] }>("matches");
+  const likesCatalog = useCatalog<{ items: LikeRecord[] }>("likes");
   const [search, setSearch] = useState("");
   const [removeId, setRemoveId] = useState<string | null>(null);
+  const [matches, setMatches] = useState<MatchRecord[]>([]);
+
+  const loadedMatches = matchesCatalog.data?.items ?? matches;
+  const likes = likesCatalog.data?.items ?? [];
+
+  useEffect(() => {
+    if (matchesCatalog.data?.items) setMatches(matchesCatalog.data.items);
+  }, [matchesCatalog.data]);
 
   const filteredMatches = useMemo(
     () =>
-      matches.filter((m) => {
+      loadedMatches.filter((m) => {
         const q = search.toLowerCase();
         return (
           !q ||
@@ -41,57 +53,43 @@ export default function LikesMatchesPage() {
           m.userBName.toLowerCase().includes(q)
         );
       }),
-    [matches, search],
-  );
-
-  const filteredLikes = useMemo(
-    () =>
-      likes.filter((l) => {
-        const q = search.toLowerCase();
-        return (
-          !q ||
-          l.fromUserName.toLowerCase().includes(q) ||
-          l.toUserName.toLowerCase().includes(q) ||
-          l.country.toLowerCase().includes(q)
-        );
-      }),
-    [search],
+    [loadedMatches, search],
   );
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Likes & Matches"
-        description="Monitor likes, mutual matches, conversion, and investigate abusive matching."
-      />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Total likes" value={overviewMetrics.totalLikes} icon={Heart} change={22.7} />
-        <KpiCard label="Total matches" value={overviewMetrics.totalMatches} icon={Handshake} change={19.5} />
-        <KpiCard label="New matches today" value={1842} icon={Handshake} />
-        <KpiCard label="Match conversion" value={17} prefix="" icon={Heart} />
-      </div>
-
-      <div className="glass-card p-4 md:p-5">
-        <ModuleToolbar
-          search={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Search by match ID, user ID, or name..."
+      <PageHeader title="Likes & Matches" description="Monitor engagement events and moderate match graph integrity." />
+      <ModuleStatus
+        loading={matchesCatalog.loading || likesCatalog.loading}
+        error={matchesCatalog.error || likesCatalog.error}
+        authority={matchesCatalog.authority}
+        notice={matchesCatalog.notice}
+      >
+        <IntegrationBanner
+          authority={matchesCatalog.authority}
+          message={matchesCatalog.notice || "Engagement data authority"}
         />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <KpiCard label="Total likes" value={likes.length} icon={Heart} />
+          <KpiCard label="Total matches" value={loadedMatches.length} icon={Handshake} />
+        </div>
         <Tabs defaultValue="matches">
           <TabsList>
-            <TabsTrigger value="matches">Match records</TabsTrigger>
-            <TabsTrigger value="likes">Likes overview</TabsTrigger>
+            <TabsTrigger value="matches">Matches</TabsTrigger>
+            <TabsTrigger value="likes">Likes</TabsTrigger>
           </TabsList>
-          <TabsContent value="matches" className="mt-4">
+          <TabsContent value="matches" className="glass-card p-4 md:p-5">
+            <ModuleToolbar search={search} onSearchChange={setSearch} />
             {filteredMatches.length === 0 ? (
-              <EmptyState title="No match records found." />
+              <EmptyState title="No matches found." />
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Match ID</TableHead>
-                    <TableHead>Users</TableHead>
-                    <TableHead>Matched at</TableHead>
+                    <TableHead>Match</TableHead>
+                    <TableHead>User A</TableHead>
+                    <TableHead>User B</TableHead>
+                    <TableHead>Matched</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
@@ -101,10 +99,21 @@ export default function LikesMatchesPage() {
                     <TableRow key={m.id}>
                       <TableCell className="font-mono text-xs">{m.id}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-4">
-                          <UserChip name={m.userAName} avatar={m.userAAvatar} />
-                          <span className="text-muted-foreground">×</span>
-                          <UserChip name={m.userBName} avatar={m.userBAvatar} />
+                        <div className="flex items-center gap-2">
+                          <Avatar className="size-8">
+                            <AvatarImage src={m.userAAvatar} />
+                            <AvatarFallback>{m.userAName.slice(0, 2)}</AvatarFallback>
+                          </Avatar>
+                          {m.userAName}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="size-8">
+                            <AvatarImage src={m.userBAvatar} />
+                            <AvatarFallback>{m.userBName.slice(0, 2)}</AvatarFallback>
+                          </Avatar>
+                          {m.userBName}
                         </div>
                       </TableCell>
                       <TableCell>{formatDateTime(m.matchedAt)}</TableCell>
@@ -112,13 +121,8 @@ export default function LikesMatchesPage() {
                         <StatusBadge value={m.status} />
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={m.status === "removed"}
-                          onClick={() => setRemoveId(m.id)}
-                        >
-                          Remove
+                        <Button size="sm" variant="outline" onClick={() => setRemoveId(m.id)}>
+                          Unmatch
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -127,64 +131,48 @@ export default function LikesMatchesPage() {
               </Table>
             )}
           </TabsContent>
-          <TabsContent value="likes" className="mt-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>From</TableHead>
-                  <TableHead>To</TableHead>
-                  <TableHead>Country</TableHead>
-                  <TableHead>Membership</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredLikes.map((l) => (
-                  <TableRow key={l.id}>
-                    <TableCell>{l.fromUserName}</TableCell>
-                    <TableCell>{l.toUserName}</TableCell>
-                    <TableCell>{l.country}</TableCell>
-                    <TableCell>
-                      <StatusBadge value={l.membership} />
-                    </TableCell>
-                    <TableCell>{formatDateTime(l.createdAt)}</TableCell>
+          <TabsContent value="likes" className="glass-card p-4 md:p-5">
+            {likes.length === 0 ? (
+              <EmptyState title="No likes found." />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>From</TableHead>
+                    <TableHead>To</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Membership</TableHead>
+                    <TableHead>Country</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Showing {formatNumber(filteredLikes.length)} sample like events from the operations
-              store.
-            </p>
+                </TableHeader>
+                <TableBody>
+                  {likes.map((l) => (
+                    <TableRow key={l.id}>
+                      <TableCell>{l.fromUserName}</TableCell>
+                      <TableCell>{l.toUserName}</TableCell>
+                      <TableCell>{formatDateTime(l.createdAt)}</TableCell>
+                      <TableCell>
+                        <StatusBadge value={l.membership} />
+                      </TableCell>
+                      <TableCell>{l.country}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </TabsContent>
         </Tabs>
-      </div>
-
-      <ConfirmActionDialog
-        open={Boolean(removeId)}
-        onOpenChange={(o) => !o && setRemoveId(null)}
-        title="Remove match"
-        description="Matches cannot be manipulated without a recorded reason."
-        confirmLabel="Remove match"
-        onConfirm={async (reason) => {
-          setMatches((prev) =>
-            prev.map((m) => (m.id === removeId ? { ...m, status: "removed" } : m)),
-          );
-          toast.success("Match removed", { description: reason });
-        }}
-      />
-    </div>
-  );
-}
-
-function UserChip({ name, avatar }: { name: string; avatar: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <Avatar className="size-7">
-        <AvatarImage src={avatar} />
-        <AvatarFallback>{name.slice(0, 2)}</AvatarFallback>
-      </Avatar>
-      <span className="text-sm">{name}</span>
+        <ConfirmActionDialog
+          open={Boolean(removeId)}
+          onOpenChange={(o) => !o && setRemoveId(null)}
+          title="Remove match"
+          description="Match removals against Core require Core write APIs. Local-dev updates are non-production."
+          onConfirm={async () => {
+            setMatches((prev) => prev.filter((m) => m.id !== removeId));
+            toast.success("Match removed (local-dev view)");
+          }}
+        />
+      </ModuleStatus>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("admin sqlite persistence", () => {
   let dbPath = "";
+  const previousMode = process.env.PLATFORM_DATA_MODE;
 
   beforeEach(() => {
     dbPath = path.join(os.tmpdir(), `ftx-admin-test-${Date.now()}-${Math.random()}.sqlite`);
@@ -32,9 +33,12 @@ describe("admin sqlite persistence", () => {
       }
     }
     delete process.env.FTX_SQLITE_PATH;
+    if (previousMode === undefined) delete process.env.PLATFORM_DATA_MODE;
+    else process.env.PLATFORM_DATA_MODE = previousMode;
   });
 
-  it("bootstraps users into sqlite and persists status updates", async () => {
+  it("bootstraps users into sqlite only in local_dev and persists status updates", async () => {
+    process.env.PLATFORM_DATA_MODE = "local_dev";
     const { ensureAdminDatabase } = await import("@/lib/db/bootstrap");
     const { listUsersFromDb, updateUserStatusInDb, getUserFromDb, dbHealth } = await import(
       "@/lib/db/queries"
@@ -61,5 +65,19 @@ describe("admin sqlite persistence", () => {
     );
     expect(updated?.accountStatus).toBe("suspended");
     expect(getUserFromDb(id)?.accountStatus).toBe("suspended");
+  });
+
+  it("skips seed bootstrap in core mode", async () => {
+    process.env.PLATFORM_DATA_MODE = "core";
+    const { ensureAdminDatabase } = await import("@/lib/db/bootstrap");
+    const { dbHealth } = await import("@/lib/db/queries");
+
+    const first = ensureAdminDatabase();
+    expect(first.bootstrapped).toBe(false);
+    expect("skippedSeed" in first && first.skippedSeed).toBe(true);
+
+    const health = dbHealth();
+    expect(health.ok).toBe(true);
+    expect(health.users).toBe(0);
   });
 });

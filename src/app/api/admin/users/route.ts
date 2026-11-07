@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { can } from "@/lib/permissions";
 import { listUsersFromDb } from "@/lib/db/queries";
+import { requirePlatformAccess, withAuthority } from "@/lib/integrations/require-platform";
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -9,6 +10,9 @@ export async function GET(request: Request) {
   if (!can(session.role, "users.view")) {
     return NextResponse.json({ error: "Permission denied" }, { status: 403 });
   }
+
+  const gate = await requirePlatformAccess();
+  if (gate.error) return gate.error;
 
   const url = new URL(request.url);
   const result = listUsersFromDb({
@@ -19,5 +23,5 @@ export async function GET(request: Request) {
     limit: Number(url.searchParams.get("limit") ?? 50),
     offset: Number(url.searchParams.get("offset") ?? 0),
   });
-  return NextResponse.json(result);
+  return NextResponse.json(withAuthority(gate.access, result));
 }

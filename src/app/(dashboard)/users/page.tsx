@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { IntegrationBanner } from "@/components/shared/integration-banner";
 import { PageHeader } from "@/components/shared/page-header";
 import { ModuleToolbar } from "@/components/shared/module-toolbar";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -26,6 +27,8 @@ export default function UsersPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [authority, setAuthority] = useState("unavailable");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -45,9 +48,15 @@ export default function UsersPage() {
           signal: controller.signal,
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to load users");
+        if (!res.ok) {
+          setAuthority(data.authority || "unavailable");
+          setNotice(data.error || "");
+          throw new Error(data.error || "Failed to load users");
+        }
         setUsers(data.users);
         setTotal(data.total);
+        setAuthority(data.authority || "unknown");
+        setNotice(data.notice || "");
       } catch (e) {
         if ((e as Error).name !== "AbortError") {
           setError((e as Error).message);
@@ -64,11 +73,12 @@ export default function UsersPage() {
   }, [search, filter]);
 
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader
         title="User Management"
-        description={`Search and manage registered FindTenX accounts (${total} in database).`}
+        description={`Search and manage registered FindTenX accounts (${total} loaded).`}
       />
+      <IntegrationBanner authority={authority} message={notice || error || "User directory authority"} />
       <div className="glass-card p-4 md:p-5">
         <ModuleToolbar
           search={search}

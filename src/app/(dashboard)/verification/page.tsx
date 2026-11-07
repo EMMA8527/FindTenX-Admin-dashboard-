@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
+import { IntegrationBanner } from "@/components/shared/integration-banner";
 import { PageHeader } from "@/components/shared/page-header";
 import { ModuleToolbar } from "@/components/shared/module-toolbar";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -11,15 +12,47 @@ import { KpiCard } from "@/components/shared/kpi-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { verifications as seed } from "@/lib/data/seed";
 import { formatDateTime } from "@/lib/format";
+import type { VerificationSubmission } from "@/lib/types";
 import { BadgeCheck, Clock3, RotateCcw, XCircle } from "lucide-react";
 
 export default function VerificationPage() {
-  const [items, setItems] = useState(seed);
+  const [items, setItems] = useState<VerificationSubmission[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("pending");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [authority, setAuthority] = useState("unavailable");
+  const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<{ id: string; next: "verified" | "rejected" | "resubmission" } | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await fetch("/api/admin/verification", { signal: controller.signal });
+        const data = await res.json();
+        if (!res.ok) {
+          setAuthority(data.authority || "unavailable");
+          setNotice(data.error || "");
+          throw new Error(data.error || "Failed to load verifications");
+        }
+        setItems(data.verifications || []);
+        setAuthority(data.authority || "unknown");
+        setNotice(data.notice || "");
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") {
+          setError((e as Error).message);
+          setItems([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, []);
 
   const filtered = useMemo(() => items.filter((v) => {
     const q = search.toLowerCase();
@@ -38,6 +71,7 @@ export default function VerificationPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Verification Centre" description="Review identity, selfie, liveness and document verification submissions." />
+      <IntegrationBanner authority={authority} message={notice || error || "Verification queue authority"} />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard label="Total submissions" value={counts.total} icon={BadgeCheck} />
         <KpiCard label="Pending" value={counts.pending} icon={Clock3} />
@@ -53,7 +87,13 @@ export default function VerificationPage() {
           { label: "Resubmission", value: "resubmission" },
           { label: "Verified", value: "verified" },
         ]} />
-        {filtered.length === 0 ? <EmptyState title="No pending verification submissions." /> : (
+        {loading ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Loading verification queue…</p>
+        ) : error ? (
+          <EmptyState title="Unable to load verifications" description={error} />
+        ) : filtered.length === 0 ? (
+          <EmptyState title="No verification submissions for this filter." />
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -97,7 +137,7 @@ export default function VerificationPage() {
         open={Boolean(selected)}
         onOpenChange={(o) => !o && setSelected(null)}
         title="Confirm verification decision"
-        description="Verification decisions are audited. Identity documents are only shown to authorized officers when legally required."
+        description="Verification decisions are audited. Live IDV providers remain disabled until credentials are supplied. Local status changes are admin-dev only."
         onConfirm={async (reason) => {
           if (!selected) return;
           setItems((prev) => prev.map((i) => i.id === selected.id ? { ...i, status: selected.next, notes: reason } : i));

@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:security": "vitest run tests/security",
     "test:persistence": "vitest run tests/persistence",
+    "test:integration": "vitest run tests/integration",
     "test": "vitest run",
     "secrets:generate": "node scripts/generate-admin-secrets.mjs --write",
     "db:migrate": "tsx -e \"import { ensureAdminDatabase } from './src/lib/db/bootstrap.ts'; console.log(ensureAdminDatabase())\""

@@ -13,6 +13,7 @@ import {
   revenueSeries,
   userGrowth,
 } from "@/lib/data/seed";
+import { requirePlatformAccess, withAuthority } from "@/lib/integrations/require-platform";
 
 export async function GET() {
   const session = await getSession();
@@ -21,16 +22,24 @@ export async function GET() {
     return NextResponse.json({ error: "Permission denied" }, { status: 403 });
   }
 
+  const gate = await requirePlatformAccess();
+  if (gate.error) return gate.error;
+  const { access } = gate;
+
   const metrics = getOverviewFromDb();
   const meta = getDataSourceMeta();
-  return NextResponse.json({
-    metrics,
-    badges: dashboardBadges(),
-    growth: userGrowth,
-    engagement: engagementSeries,
-    revenue: revenueSeries,
-    activity: recentActivity,
-    audit: recentAudit(10),
-    dataSource: meta,
-  });
+  const useLocalSeries = access.authority === "admin_local_dev";
+
+  return NextResponse.json(
+    withAuthority(access, {
+      metrics,
+      badges: dashboardBadges(),
+      growth: useLocalSeries ? userGrowth : [],
+      engagement: useLocalSeries ? engagementSeries : [],
+      revenue: useLocalSeries ? revenueSeries : [],
+      activity: useLocalSeries ? recentActivity : [],
+      audit: recentAudit(10),
+      dataSource: meta,
+    }),
+  );
 }

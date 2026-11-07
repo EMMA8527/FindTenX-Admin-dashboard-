@@ -18,11 +18,10 @@ import {
 } from "@/lib/data/seed";
 
 /**
- * Ensures schema exists and, on first boot only, imports the local operational
- * dataset into SQLite so the dashboard queries a real DB instead of memory.
+ * Ensures schema exists.
  *
- * When FINDTENX_API_URL / Core is connected, replace this bootstrap with sync
- * from the shared FindTenX database — do not treat seed import as production truth.
+ * Platform seed import is ONLY allowed when PLATFORM_DATA_MODE=local_dev.
+ * Local SQLite is never a substitute for FindTenX Core production data.
  */
 export function ensureAdminDatabase() {
   migrateAdminDb();
@@ -32,6 +31,22 @@ export function ensureAdminDatabase() {
     .get("bootstrapped_at") as { value: string } | undefined;
 
   if (bootstrapped) return { bootstrapped: false as const };
+
+  const allowBootstrap = (process.env.PLATFORM_DATA_MODE || "").trim().toLowerCase() === "local_dev";
+  if (!allowBootstrap) {
+    const now = new Date().toISOString();
+    sqlite
+      .prepare(
+        "INSERT INTO schema_meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      )
+      .run("bootstrapped_at", now);
+    sqlite
+      .prepare(
+        "INSERT INTO schema_meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      )
+      .run("data_source", "core_required_no_local_bootstrap");
+    return { bootstrapped: false as const, skippedSeed: true as const };
+  }
 
   const db = getDb();
   const now = new Date().toISOString();
@@ -290,9 +305,13 @@ export function getDataSourceMeta() {
   const row = getSqlite()
     .prepare("SELECT value FROM schema_meta WHERE key = ?")
     .get("data_source") as { value: string } | undefined;
+  const mode = (process.env.PLATFORM_DATA_MODE || "core").trim().toLowerCase();
   return {
     source: row?.value ?? "unknown",
     findtenxApiConfigured: Boolean(process.env.FINDTENX_API_URL),
+    findtenxDataConfigured: Boolean(process.env.FINDTENX_DATA_API_URL || process.env.FINDTENX_API_URL),
+    platformDataMode: mode === "local_dev" ? "local_dev" : "core",
+    productionAuthority: "findtenx-core",
   };
 }
 

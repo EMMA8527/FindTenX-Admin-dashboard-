@@ -31,7 +31,17 @@ export type Permission =
   | "staff.manage"
   | "settings.view"
   | "settings.manage"
-  | "security.view";
+  | "security.view"
+  | "referrals.view"
+  | "referrals.manage"
+  | "communications.view"
+  | "communications.manage"
+  | "fraud.view"
+  | "fraud.manage"
+  | "content.view"
+  | "content.manage"
+  | "integrations.view"
+  | "integrations.manage";
 
 const allPermissions: Permission[] = [
   "overview.view",
@@ -65,6 +75,16 @@ const allPermissions: Permission[] = [
   "settings.view",
   "settings.manage",
   "security.view",
+  "referrals.view",
+  "referrals.manage",
+  "communications.view",
+  "communications.manage",
+  "fraud.view",
+  "fraud.manage",
+  "content.view",
+  "content.manage",
+  "integrations.view",
+  "integrations.manage",
 ];
 
 const rolePermissions: Record<AdminRole, Permission[]> = {
@@ -80,6 +100,8 @@ const rolePermissions: Record<AdminRole, Permission[]> = {
     "likes.view",
     "likes.manage",
     "analytics.view",
+    "referrals.view",
+    "integrations.view",
   ],
   verification: [
     "overview.view",
@@ -96,14 +118,22 @@ const rolePermissions: Record<AdminRole, Permission[]> = {
     "reports.manage",
     "chat.view",
     "chat.investigate",
+    "fraud.view",
   ],
-  support: ["overview.view", "users.view", "support.view", "support.manage"],
+  support: [
+    "overview.view",
+    "users.view",
+    "support.view",
+    "support.manage",
+    "communications.view",
+  ],
   finance: [
     "overview.view",
     "subscriptions.view",
     "payments.view",
     "payments.manage",
     "analytics.view",
+    "referrals.view",
   ],
   marketing: [
     "overview.view",
@@ -112,6 +142,12 @@ const rolePermissions: Record<AdminRole, Permission[]> = {
     "promotions.view",
     "promotions.manage",
     "analytics.view",
+    "communications.view",
+    "communications.manage",
+    "content.view",
+    "content.manage",
+    "referrals.view",
+    "referrals.manage",
   ],
 };
 

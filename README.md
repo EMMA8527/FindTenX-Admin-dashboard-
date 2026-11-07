@@ -8,7 +8,9 @@ Enterprise administration portal for the FindTenX dating and relationship platfo
 - Overview KPIs, charts, recent activity, and pending actions
 - User, profile, verification, discovery, likes/matches, and chat operations
 - Reports & moderation, subscriptions, payments, notifications, and promotions
+- Referrals, communications, fraud ops, website content shells
 - Customer support tickets, analytics, staff permissions, platform settings
+- API & integration monitoring (live Core/Data probes)
 - Security audit logs for sensitive administrative actions
 - Light, dark, and system themes
 
@@ -19,6 +21,7 @@ Enterprise administration portal for the FindTenX dating and relationship platfo
 - Recharts
 - JWT HttpOnly session cookies (`jose`)
 - bcrypt password verification + TOTP MFA (`otpauth`)
+- SQLite + Drizzle for **admin-local** operational storage only
 
 ## Security configuration (required)
 
@@ -36,57 +39,43 @@ Generate a local `.env.local` (gitignored):
 node scripts/generate-admin-secrets.mjs --write
 ```
 
-Store the printed bootstrap password and add `ADMIN_MFA_SECRET` to your authenticator app. For hosted deployments, set the same variables in your secrets manager / Cursor app secrets — do not commit them.
+## Backend authority
 
-See `.env.example` for the variable list without values.
+**FindTenX Core** is the authoritative platform backend. **FindTenX Data** is for analytics/reporting.
+
+| Variable | Purpose |
+| --- | --- |
+| `FINDTENX_API_URL` | Core base URL |
+| `FINDTENX_ADMIN_API_KEY` | Core admin credential |
+| `FINDTENX_DATA_API_URL` | Data API base URL (optional; falls back to Core URL for probes) |
+| `FINDTENX_DATA_API_KEY` | Data API credential |
+| `PLATFORM_DATA_MODE` | `core` (default, fail closed) or `local_dev` (explicit non-production local SQLite) |
+
+Local SQLite is **not** a substitute for the production FindTenX database. In `core` mode, platform modules return `CORE_REQUIRED` until Core is configured and reachable. Use `PLATFORM_DATA_MODE=local_dev` only for explicit local development.
+
+See `docs/INTEGRATION_STATUS.md` for the live integration report.
 
 ## Run locally
 
 ```bash
 npm install
 node scripts/generate-admin-secrets.mjs --write   # first time only
+# optional for local UI without Core:
+# echo 'PLATFORM_DATA_MODE=local_dev' >> .env.local
 npm run dev
 ```
 
 Open [http://localhost:3456](http://localhost:3456).
 
-Sign in with an active administrator email from the staff directory (for example the seeded Super Administrator account), the bootstrap password from secret generation, and a current TOTP code.
-
-## Data layer
-
-The admin app persists operational data in SQLite by default (`./data/findtenx-admin.sqlite`, gitignored).
-
-- First boot runs migrations and a one-time bootstrap into the DB.
-- Overview and Users modules read/write the database via `/api/admin/*`.
-- Set `DATABASE_URL=file:/path/to.db` or `FTX_SQLITE_PATH` to relocate the file.
-
-### FindTenX Core integration (required for true production)
-
-This agent currently **cannot clone** `findtenx-core` / `findtenx-data` (Origin token 403). When access is granted, set:
-
-```bash
-FINDTENX_API_URL=https://your-findtenx-core-api
-```
-
-and replace local bootstrap with Core sync. Do not treat the local bootstrap dataset as production customer truth.
-
 ## Admin APIs
 
-- `POST /api/admin/auth/login`
-- `POST /api/admin/auth/logout`
+- `POST /api/admin/auth/login|logout`
 - `GET /api/admin/auth/me`
 - `POST /api/admin/auth/mfa/verify`
 - `POST|PUT /api/admin/auth/password/reset`
-- `GET /api/admin/overview`
-- `GET /api/admin/users`
-- `GET|PATCH /api/admin/users/:id`
-- `GET /api/admin/verification`
-- `GET /api/admin/reports`
-- `GET /api/admin/health`
-
-## Product restrictions
-
-FindTenX admin tooling does **not** include voice/video calling, Stories, Status updates, live streaming, or public online directories. Online presence remains a mobile Chat-only concern.
+- `GET /api/admin/overview|users|verification|reports|health|integrations`
+- `GET /api/admin/catalog?resource=…`
+- Legacy session routes under `/api/auth/*` remain for the login UI
 
 ## Scripts
 
@@ -94,5 +83,11 @@ FindTenX admin tooling does **not** include voice/video calling, Stories, Status
 - `npm run build` — production build
 - `npm run start` — production server on port 3456
 - `npm run lint` — ESLint
-- `npm run test:security` — authentication and authorization security tests
-- `node scripts/generate-admin-secrets.mjs --write` — create local secrets
+- `npm run test` — all tests
+- `npm run test:security` — auth security tests
+- `npm run test:persistence` — SQLite persistence tests
+- `npm run test:integration` — Core gate / probe tests
+
+## Product restrictions
+
+FindTenX admin tooling does **not** include voice/video calling, Stories, Status updates, live streaming, or public online directories.
