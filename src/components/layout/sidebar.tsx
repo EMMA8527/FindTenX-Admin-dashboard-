@@ -44,10 +44,11 @@ export function Sidebar({
   const content = (
     <aside
       className={cn(
-        "flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300",
+        "relative flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300",
         collapsed ? "w-[84px]" : "w-[280px]",
       )}
     >
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-[linear-gradient(180deg,#ffd700,#ff8c00,#ff1493,#c71585)] opacity-80" />
       <div className="flex items-center justify-between gap-2 border-b border-sidebar-border px-4 py-4">
         <BrandLogo collapsed={collapsed} />
         <Button

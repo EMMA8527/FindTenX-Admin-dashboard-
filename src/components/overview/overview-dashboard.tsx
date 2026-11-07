@@ -42,7 +42,7 @@ import {
 import { formatCurrency, formatDateTime, formatNumber } from "@/lib/format";
 import type { ActivityItem, OverviewMetrics } from "@/lib/types";
 
-const genderColors = ["#ff4d7a", "#3b82f6", "#a855f7"];
+const genderColors = ["#ff1493", "#ff8c00", "#c71585"];
 
 export function OverviewDashboard({
   metrics,
@@ -67,7 +67,7 @@ export function OverviewDashboard({
     { label: "Verified", value: metrics.verifiedUsers, pct: 66.0, color: "#22c55e" },
     { label: "Pending", value: metrics.pendingVerifications, pct: 0.03, color: "#ffc84a" },
     { label: "Rejected", value: 14762, pct: 3.1, color: "#ef4444" },
-    { label: "Resubmission", value: 11887, pct: 2.5, color: "#ff4d7a" },
+    { label: "Resubmission", value: 11887, pct: 2.5, color: "#ff1493" },
   ];
 
   const revenueTotals = {
@@ -109,8 +109,8 @@ export function OverviewDashboard({
               <AreaChart data={growth}>
                 <defs>
                   <linearGradient id="growthFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#ff4d7a" stopOpacity={0.45} />
-                    <stop offset="100%" stopColor="#ff8a3d" stopOpacity={0.02} />
+                    <stop offset="0%" stopColor="#ff1493" stopOpacity={0.45} />
+                    <stop offset="100%" stopColor="#ff8c00" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
@@ -123,7 +123,7 @@ export function OverviewDashboard({
                     borderRadius: 12,
                   }}
                 />
-                <Area type="monotone" dataKey="users" stroke="#ff4d7a" strokeWidth={3} fill="url(#growthFill)" />
+                <Area type="monotone" dataKey="users" stroke="#ff1493" strokeWidth={3} fill="url(#growthFill)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -206,8 +206,8 @@ export function OverviewDashboard({
                     borderRadius: 12,
                   }}
                 />
-                <Bar dataKey="likes" fill="#a855f7" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="matches" fill="#ff4d7a" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="likes" fill="#ff8c00" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="matches" fill="#ff1493" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -221,14 +221,14 @@ export function OverviewDashboard({
               <AreaChart data={revenue}>
                 <defs>
                   <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#ff8a3d" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="#ff8a3d" stopOpacity={0.02} />
+                    <stop offset="0%" stopColor="#ff8c00" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#ffd700" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
                 <Area
                   type="monotone"
                   dataKey="subscriptions"
-                  stroke="#ff8a3d"
+                  stroke="#ff8c00"
                   strokeWidth={2.5}
                   fill="url(#revFill)"
                 />

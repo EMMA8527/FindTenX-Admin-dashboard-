@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand/logo";
@@ -59,18 +60,30 @@ export default function LoginPage() {
       </div>
 
       <div className="relative grid w-full max-w-5xl overflow-hidden rounded-[28px] border border-border bg-card shadow-2xl lg:grid-cols-2">
-        <div className="relative hidden overflow-hidden brand-gradient p-10 text-white lg:flex lg:flex-col lg:justify-between">
-          <BrandLogo className="[&_p]:text-white [&_p.text-muted-foreground]:text-white/80" />
-          <div>
+        <div className="relative hidden overflow-hidden bg-black p-10 text-white lg:flex lg:flex-col lg:justify-between">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(90deg,rgba(255,140,0,0.35),rgba(255,20,147,0.35))] blur-3xl" />
+          <BrandLogo size="lg" className="relative [&_p]:text-white [&_p.text-muted-foreground]:text-white/70" />
+          <div className="relative flex flex-1 flex-col items-center justify-center py-8">
+            <Image
+              src="/brand/logo.jpg"
+              alt="FindTenX heart figures logo"
+              width={192}
+              height={192}
+              priority
+              className="h-48 w-48 rounded-3xl object-cover shadow-[0_0_60px_rgba(255,20,147,0.35)] ring-1 ring-white/10"
+            />
+          </div>
+          <div className="relative">
             <h1 className="max-w-sm text-4xl font-semibold leading-tight tracking-tight">
-              Enterprise control for FindTenX
+              Enterprise control for{" "}
+              <span className="brand-gradient-text">FindTenX</span>
             </h1>
-            <p className="mt-4 max-w-sm text-sm text-white/85">
+            <p className="mt-4 max-w-sm text-sm text-white/80">
               Securely manage users, verification, safety, subscriptions, and revenue from one
               administration portal.
             </p>
+            <p className="mt-8 text-xs text-white/55">Authorized personnel only · All actions audited</p>
           </div>
-          <p className="text-xs text-white/70">Authorized personnel only · All actions audited</p>
         </div>
 
         <div className="p-8 md:p-10">

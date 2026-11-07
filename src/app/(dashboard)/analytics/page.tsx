@@ -73,15 +73,15 @@ export default function AnalyticsPage() {
               <AreaChart data={userGrowth}>
                 <defs>
                   <linearGradient id="aFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#ff4d7a" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#ff4d7a" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#ff1493" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#ff8c00" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
                 <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <Tooltip />
-                <Area type="monotone" dataKey="registrations" stroke="#ff4d7a" fill="url(#aFill)" />
+                <Area type="monotone" dataKey="registrations" stroke="#ff1493" fill="url(#aFill)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -95,8 +95,8 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <Tooltip />
-                <Bar dataKey="likes" fill="#a855f7" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="matches" fill="#ff4d7a" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="likes" fill="#ff8c00" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="matches" fill="#ff1493" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -122,8 +122,8 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <Tooltip />
-                <Area type="monotone" dataKey="subscriptions" stroke="#ff8a3d" fill="#ff8a3d33" />
-                <Area type="monotone" dataKey="boosts" stroke="#ff4d7a" fill="#ff4d7a22" />
+                <Area type="monotone" dataKey="subscriptions" stroke="#ff8c00" fill="#ff8c0033" />
+                <Area type="monotone" dataKey="boosts" stroke="#ff1493" fill="#ff149322" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
