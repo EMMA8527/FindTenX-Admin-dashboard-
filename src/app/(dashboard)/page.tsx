@@ -58,8 +58,8 @@ export default async function OverviewPage() {
       <div className="space-y-4">
         <IntegrationBanner authority={access.authority} message={access.message} />
         <EmptyState
-          title="Overview waiting on FindTenX Core"
-          description="Production statistics are not shown from local bootstrap. Configure and authorize FINDTENX_API_URL (and admin API key), or grant this agent Origin access to findtenx-core / findtenx-data."
+          title="DEMO / offline — FindTenX Core not connected"
+          description="Production user, revenue, and admin operations stay locked until https://api.findtenx.app is deployed and FINDTENX_API_URL + FINDTENX_ADMIN_API_KEY are verified. Sample or local_dev data is never shown here as live production."
         />
       </div>
     );

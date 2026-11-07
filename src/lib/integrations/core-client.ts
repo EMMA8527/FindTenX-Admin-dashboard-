@@ -39,8 +39,10 @@ export async function probeFindtenxCore(): Promise<CoreProbe> {
     };
   }
 
-  // Prefer the documented Core health path; keep a short fallback list for older deploys.
-  const candidates = ["/api/v1/health", "/health", "/api/health"];
+  // Public health first; then admin health when FINDTENX_ADMIN_API_KEY is set.
+  const candidates = config.apiKeyConfigured
+    ? ["/api/v1/health", "/api/v1/admin/health"]
+    : ["/api/v1/health"];
   const checkedPaths: CoreProbe["checkedPaths"] = [];
   let reachable = false;
   let authenticated: boolean | null = null;
@@ -48,7 +50,7 @@ export async function probeFindtenxCore(): Promise<CoreProbe> {
   for (const path of candidates) {
     const result = await integrationFetch(`${config.baseUrl}${path}`, {
       method: "GET",
-      apiKey: config.apiKey,
+      apiKey: path.startsWith("/api/v1/admin/") ? config.apiKey : null,
       timeoutMs: 5000,
     });
     checkedPaths.push({
@@ -59,9 +61,14 @@ export async function probeFindtenxCore(): Promise<CoreProbe> {
       latencyMs: result.latencyMs,
     });
     if (result.status > 0) reachable = true;
-    if (result.status === 401 || result.status === 403) authenticated = false;
-    if (result.ok) {
-      authenticated = config.apiKeyConfigured ? true : authenticated;
+    if (path.startsWith("/api/v1/admin/") && (result.status === 401 || result.status === 403)) {
+      authenticated = false;
+    }
+    if (path.startsWith("/api/v1/admin/") && result.ok) {
+      authenticated = true;
+      break;
+    }
+    if (!path.startsWith("/api/v1/admin/") && result.ok && !config.apiKeyConfigured) {
       break;
     }
   }

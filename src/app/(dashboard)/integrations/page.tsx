@@ -143,6 +143,47 @@ export default function IntegrationsPage() {
           </div>
 
           <div className="glass-card space-y-3 p-5">
+            <h3 className="font-semibold">App Secrets (Admin only)</h3>
+            <p className="text-xs text-muted-foreground">
+              Enter Cursor Secrets only when the source system is ready. Full guide:{" "}
+              <code className="text-foreground">docs/APP_SECRETS_GUIDE.md</code>
+            </p>
+            <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+              <li>
+                <span className="font-medium text-foreground">ADMIN_SESSION_SECRET</span> — Admin JWT signing
+                (Admin auth)
+              </li>
+              <li>
+                <span className="font-medium text-foreground">ADMIN_PASSWORD_HASH</span> — bcrypt Admin password
+                (Admin auth)
+              </li>
+              <li>
+                <span className="font-medium text-foreground">ADMIN_MFA_SECRET</span> — TOTP MFA (Admin auth)
+              </li>
+              <li>
+                <span className="font-medium text-foreground">FINDTENX_API_URL</span> — Core base URL after{" "}
+                <code className="text-foreground">api.findtenx.app</code> is live (FindTenX-Core)
+              </li>
+              <li>
+                <span className="font-medium text-foreground">FINDTENX_ADMIN_API_KEY</span> — same as Core{" "}
+                <code className="text-foreground">ADMIN_API_KEY</code> (FindTenX-Core)
+              </li>
+              <li>
+                <span className="font-medium text-foreground">FINDTENX_DATA_API_URL</span> — leave empty until
+                Data is deployed (FindTenX-Data)
+              </li>
+              <li>
+                <span className="font-medium text-foreground">FINDTENX_DATA_API_KEY</span> — leave empty until
+                Data is deployed (FindTenX-Data)
+              </li>
+            </ol>
+            <p className="text-xs text-amber-100/90">
+              Sample / local_dev data is never production. Production login to platform ops waits on a verified
+              Core connection.
+            </p>
+          </div>
+
+          <div className="glass-card space-y-3 p-5">
             <h3 className="font-semibold">External providers</h3>
             <p className="text-xs text-muted-foreground">
               Live payment, email, SMS, push, and identity verification stay disabled until credentials are supplied and tested.
