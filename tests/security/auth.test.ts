@@ -151,6 +151,7 @@ describe("session tokens", () => {
     })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject("adm_001")
+      .setJti("active-test-jti")
       .setIssuedAt()
       .setExpirationTime("8h")
       .sign(new TextEncoder().encode(TEST_SESSION_SECRET));
@@ -158,6 +159,22 @@ describe("session tokens", () => {
     const session = await verifySessionToken(token);
     expect(session?.sub).toBe("adm_001");
     expect(session?.role).toBe("super_admin");
+  });
+
+  it("rejects tokens that omit a session id", async () => {
+    const token = await new SignJWT({
+      email: "emma@findtenx.com",
+      name: "Emma Paul",
+      role: "super_admin",
+      avatar: "x",
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject("adm_001")
+      .setIssuedAt()
+      .setExpirationTime("8h")
+      .sign(new TextEncoder().encode(TEST_SESSION_SECRET));
+
+    expect(await verifySessionToken(token)).toBeNull();
   });
 
   it("rejects revoked session ids after logout-style revocation", async () => {
