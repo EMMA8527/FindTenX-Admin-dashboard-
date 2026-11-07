@@ -193,7 +193,7 @@ function buildUsers(): PlatformUser[] {
     return {
       id: `usr_${String(1000 + i)}`,
       fullName,
-      email: `${first.toLowerCase}.${last.replace(".", "").toLowerCase()}${i}@mail.findtenx.dev`,
+      email: `${first.toLowerCase()}.${last.replace(".", "").toLowerCase()}${i}@mail.findtenx.dev`,
       phone: `+23480${String(10000000 + i * 137).slice(0, 8)}`,
       age,
       dateOfBirth: `${2004 - (age - 22)}-${String((i % 12) + 1).padStart(2, "0")}-15`,

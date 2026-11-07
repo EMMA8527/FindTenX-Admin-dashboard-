@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { IntegrationBanner } from "@/components/shared/integration-banner";
+import { MobileUserCard } from "@/components/shared/mobile-user-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { ModuleToolbar } from "@/components/shared/module-toolbar";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -31,7 +32,7 @@ export default function UsersPage() {
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    const controller = new AbortController();
+    let cancelled = false;
     const timer = setTimeout(async () => {
       setLoading(true);
       setError("");
@@ -44,10 +45,9 @@ export default function UsersPage() {
         if (filter === "verified") params.set("verification", "verified");
         if (filter === "unverified") params.set("verification", "unverified");
         if (filter === "premium" || filter === "free") params.set("membership", filter);
-        const res = await fetch(`/api/admin/users?${params.toString()}`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(`/api/admin/users?${params.toString()}`);
         const data = await res.json();
+        if (cancelled) return;
         if (!res.ok) {
           setAuthority(data.authority || "unavailable");
           setNotice(data.error || "");
@@ -58,16 +58,16 @@ export default function UsersPage() {
         setAuthority(data.authority || "unknown");
         setNotice(data.notice || "");
       } catch (e) {
-        if ((e as Error).name !== "AbortError") {
+        if (!cancelled) {
           setError((e as Error).message);
           setUsers([]);
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    }, 200);
+    }, 150);
     return () => {
-      controller.abort();
+      cancelled = true;
       clearTimeout(timer);
     };
   }, [search, filter]);
@@ -103,68 +103,75 @@ export default function UsersPage() {
         {error ? (
           <EmptyState title="Unable to load users" description={error} />
         ) : loading ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">Loading users from database…</p>
+          <p className="py-10 text-center text-sm text-muted-foreground">Loading users…</p>
         ) : users.length === 0 ? (
           <EmptyState title="No users found matching your search." />
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>User ID</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Registered</TableHead>
-                  <TableHead>Verification</TableHead>
-                  <TableHead>Membership</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={user.avatar} alt={user.fullName} />
-                          <AvatarFallback>{user.fullName.slice(0, 2)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{user.fullName}</p>
-                          <p className="text-xs text-muted-foreground">Age {user.age}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{user.id}</TableCell>
-                    <TableCell>
-                      <p className="text-sm">{user.email}</p>
-                      <p className="text-xs text-muted-foreground">{maskPhone(user.phone)}</p>
-                    </TableCell>
-                    <TableCell>
-                      {user.city}, {user.country}
-                    </TableCell>
-                    <TableCell>{formatDate(user.registeredAt)}</TableCell>
-                    <TableCell>
-                      <StatusBadge value={user.verificationStatus} />
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge value={user.membership} />
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge value={user.accountStatus} />
-                    </TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="outline" render={<Link href={`/users/${user.id}`} />}>
-                        View
-                      </Button>
-                    </TableCell>
+          <>
+            <div className="grid gap-3 md:hidden">
+              {users.map((user) => (
+                <MobileUserCard key={user.id} user={user} />
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>User ID</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Registered</TableHead>
+                    <TableHead>Verification</TableHead>
+                    <TableHead>Membership</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarImage src={user.avatar} alt={user.fullName} />
+                            <AvatarFallback>{user.fullName.slice(0, 2)}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{user.fullName}</p>
+                            <p className="text-xs text-muted-foreground">Age {user.age}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{user.id}</TableCell>
+                      <TableCell>
+                        <p className="text-sm">{user.email}</p>
+                        <p className="text-xs text-muted-foreground">{maskPhone(user.phone)}</p>
+                      </TableCell>
+                      <TableCell>
+                        {user.city}, {user.country}
+                      </TableCell>
+                      <TableCell>{formatDate(user.registeredAt)}</TableCell>
+                      <TableCell>
+                        <StatusBadge value={user.verificationStatus} />
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge value={user.membership} />
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge value={user.accountStatus} />
+                      </TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="outline" render={<Link href={`/users/${user.id}`} />}>
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </div>
     </div>

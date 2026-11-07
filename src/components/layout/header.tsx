@@ -32,6 +32,7 @@ export function Header({
   onMenuClick,
   dateRange,
   onDateRangeChange,
+  showMenuButton = true,
 }: {
   title: string;
   subtitle?: string;
@@ -42,6 +43,7 @@ export function Header({
   onMenuClick: () => void;
   dateRange: string;
   onDateRangeChange: (value: string) => void;
+  showMenuButton?: boolean;
 }) {
   const { theme, setTheme } = useTheme();
 
@@ -49,16 +51,18 @@ export function Header({
     <header className="sticky top-0 z-30 border-b border-border/70 bg-background/80 px-4 py-4 backdrop-blur-xl md:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-3">
-          <Button
-            variant="outline"
-            size="icon"
-            className="mt-0.5 lg:hidden"
-            onClick={onMenuClick}
-            aria-label="Open menu"
-          >
-            <Menu className="size-4" />
-          </Button>
-          <div>
+          {showMenuButton ? (
+            <Button
+              variant="outline"
+              size="icon"
+              className="mt-0.5 size-11 rounded-xl lg:hidden"
+              onClick={onMenuClick}
+              aria-label="Open menu"
+            >
+              <Menu className="size-4" />
+            </Button>
+          ) : null}
+          <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight md:text-2xl">{title}</h1>
             {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
           </div>

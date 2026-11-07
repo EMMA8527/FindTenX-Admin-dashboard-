@@ -137,19 +137,27 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply font-sans;
+    overflow-x: hidden;
+  }
   body {
     @apply bg-background text-foreground antialiased;
+    overflow-x: hidden;
+    min-height: 100dvh;
     background-image:
       radial-gradient(circle at top right, color-mix(in oklab, var(--brand-pink) 18%, transparent), transparent 30%),
       radial-gradient(circle at 12% 0%, color-mix(in oklab, var(--brand-orange) 14%, transparent), transparent 26%),
       radial-gradient(circle at 50% 100%, color-mix(in oklab, var(--brand-yellow) 8%, transparent), transparent 34%);
     background-attachment: fixed;
   }
-  html {
-    @apply font-sans;
-  }
   h1, h2, h3, h4 {
     font-family: var(--font-heading), var(--font-sans), sans-serif;
+  }
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
   }
 }
 
@@ -186,6 +194,13 @@
   }
   .animate-fade-in {
     animation: fade-in 0.35s ease-out both;
+  }
+  .touch-target {
+    @apply inline-flex min-h-11 min-w-11 items-center justify-center;
+  }
+  .safe-px {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
   }
 }
 

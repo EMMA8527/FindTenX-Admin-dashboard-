@@ -37,12 +37,18 @@ export function ModuleToolbar({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={searchPlaceholder}
-          className="h-10 bg-card pl-9"
+          className="h-11 bg-card pl-9 text-base md:text-sm"
         />
       </div>
       {filterOptions && onFilterChange ? (
-        <Select value={filter} onValueChange={(v) => onFilterChange(String(v ?? "all"))}>
-          <SelectTrigger className="h-10 w-full bg-card sm:w-[200px]">
+        <Select
+          value={filter}
+          onValueChange={(v) => {
+            if (v == null || v === "") return;
+            onFilterChange(String(v));
+          }}
+        >
+          <SelectTrigger className="h-11 w-full bg-card sm:w-[200px]">
             <SelectValue placeholder={filterPlaceholder} />
           </SelectTrigger>
           <SelectContent>

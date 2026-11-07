@@ -21,8 +21,6 @@ export function Sidebar({
   collapsed,
   onCollapsedChange,
   badges,
-  mobileOpen,
-  onMobileOpenChange,
 }: {
   role: AdminRole;
   name: string;
@@ -31,8 +29,6 @@ export function Sidebar({
   collapsed: boolean;
   onCollapsedChange: (value: boolean) => void;
   badges: { verification: number; reports: number; support: number };
-  mobileOpen: boolean;
-  onMobileOpenChange: (value: boolean) => void;
 }) {
   const pathname = usePathname();
 
@@ -41,10 +37,10 @@ export function Sidebar({
     window.location.href = "/login";
   }
 
-  const content = (
+  return (
     <aside
       className={cn(
-        "relative flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300",
+        "relative hidden h-dvh shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300 md:sticky md:top-0 md:flex",
         collapsed ? "w-[84px]" : "w-[280px]",
       )}
     >
@@ -53,8 +49,8 @@ export function Sidebar({
         <BrandLogo collapsed={collapsed} />
         <Button
           variant="ghost"
-          size="icon-sm"
-          className="hidden lg:inline-flex"
+          size="icon"
+          className="size-10 rounded-xl"
           onClick={() => onCollapsedChange(!collapsed)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
@@ -84,9 +80,8 @@ export function Sidebar({
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => onMobileOpenChange(false)}
                   className={cn(
-                    "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                    "group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
                     active
                       ? "nav-active"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -136,28 +131,12 @@ export function Sidebar({
             </div>
           ) : null}
           {!collapsed ? (
-            <Button variant="ghost" size="icon-sm" onClick={logout} aria-label="Sign out">
+            <Button variant="ghost" size="icon" className="size-10" onClick={logout} aria-label="Sign out">
               <LogOut className="size-4" />
             </Button>
           ) : null}
         </div>
       </div>
     </aside>
-  );
-
-  return (
-    <>
-      <div className="hidden lg:block">{content}</div>
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            className="absolute inset-0 bg-black/50"
-            aria-label="Close menu"
-            onClick={() => onMobileOpenChange(false)}
-          />
-          <div className="absolute inset-y-0 left-0 w-[280px] shadow-2xl">{content}</div>
-        </div>
-      ) : null}
-    </>
   );
 }

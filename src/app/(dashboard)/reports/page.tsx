@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { IntegrationBanner } from "@/components/shared/integration-banner";
+import { MobileReportCard } from "@/components/shared/mobile-report-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { ModuleToolbar } from "@/components/shared/module-toolbar";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -93,46 +94,59 @@ export default function ReportsPage() {
         ) : filtered.length === 0 ? (
           <EmptyState title="No reports for this filter." />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Report</TableHead>
-                <TableHead>Reporter</TableHead>
-                <TableHead>Reported</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="grid gap-3 md:hidden">
               {filtered.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-mono text-xs">{r.id}</TableCell>
-                  <TableCell>{r.reporterName}</TableCell>
-                  <TableCell>{r.reportedName}</TableCell>
-                  <TableCell>{r.category}</TableCell>
-                  <TableCell>{formatDateTime(r.submittedAt)}</TableCell>
-                  <TableCell>
-                    <StatusBadge value={r.priority} />
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge value={r.status} />
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSelected({ id: r.id, status: "under_review" })}
-                    >
-                      Review
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                <MobileReportCard
+                  key={r.id}
+                  report={r}
+                  onReview={() => setSelected({ id: r.id, status: "under_review" })}
+                />
               ))}
-            </TableBody>
-          </Table>
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Report</TableHead>
+                    <TableHead>Reporter</TableHead>
+                    <TableHead>Reported</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                      <TableCell>{r.reporterName}</TableCell>
+                      <TableCell>{r.reportedName}</TableCell>
+                      <TableCell>{r.category}</TableCell>
+                      <TableCell>{formatDateTime(r.submittedAt)}</TableCell>
+                      <TableCell>
+                        <StatusBadge value={r.priority} />
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge value={r.status} />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelected({ id: r.id, status: "under_review" })}
+                        >
+                          Review
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </div>
       <ConfirmActionDialog
