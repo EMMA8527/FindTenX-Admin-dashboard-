@@ -51,9 +51,9 @@ node scripts/generate-admin-secrets.mjs --write
 | `FINDTENX_DATA_API_KEY` | Data API credential |
 | `PLATFORM_DATA_MODE` | `core` (default, fail closed) or `local_dev` (explicit non-production local SQLite) |
 
-Local SQLite is **not** a substitute for the production FindTenX database. In `core` mode, platform modules return `CORE_REQUIRED` until Core is configured and reachable. Use `PLATFORM_DATA_MODE=local_dev` only for explicit local development.
+Local SQLite is **not** a substitute for the production FindTenX database. In `core` mode, platform modules return `CORE_REQUIRED` until Core is configured and reachable. Use `PLATFORM_DATA_MODE=local_dev` only for explicit local development. Production builds refuse `local_dev` unless `ALLOW_LOCAL_PLATFORM_DATA=true`.
 
-See `docs/INTEGRATION_STATUS.md` for the live integration report.
+See `docs/FINAL_PRODUCTION_INTEGRATION_REPORT.md` and `docs/INTEGRATION_STATUS.md` for the live integration report. Do not treat local_dev counts as production figures.
 
 ## Run locally
 

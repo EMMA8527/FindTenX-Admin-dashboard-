@@ -11,6 +11,17 @@ export function getPlatformDataMode(): PlatformDataMode {
   return mode === "local_dev" ? "local_dev" : "core";
 }
 
+/**
+ * Local SQLite platform data is development-only.
+ * Production builds refuse it unless ALLOW_LOCAL_PLATFORM_DATA=true is set explicitly.
+ */
+export function allowLocalPlatformData() {
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_PLATFORM_DATA !== "true") {
+    return false;
+  }
+  return getPlatformDataMode() === "local_dev";
+}
+
 export function getCoreConfig() {
   const baseUrl = (process.env.FINDTENX_API_URL || "").trim().replace(/\/$/, "");
   const apiKey = (process.env.FINDTENX_ADMIN_API_KEY || "").trim();
@@ -41,8 +52,4 @@ export function getDataConfig() {
     apiKeyConfigured: Boolean(apiKey),
     apiKey: apiKey || null,
   };
-}
-
-export function allowLocalPlatformData() {
-  return getPlatformDataMode() === "local_dev";
 }

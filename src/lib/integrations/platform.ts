@@ -92,8 +92,16 @@ export async function getIntegrationStatus() {
   const access = await resolvePlatformAccess();
   const repoAccess = {
     adminDashboard: { listed: true, clone: "ok" as const },
-    findtenxCore: { listed: true, clone: "forbidden_403" as const },
-    findtenxData: { listed: true, clone: "forbidden_403" as const },
+    findtenxCore: {
+      listed: true,
+      clone: "forbidden_403" as const,
+      detail: "Origin token not scoped for emmapaul852/findtenx-core",
+    },
+    findtenxData: {
+      listed: true,
+      clone: "forbidden_403" as const,
+      detail: "Origin token not scoped for emmapaul852/findtenx-data",
+    },
     findtenxMobile: { listed: false, clone: "not_found" as const },
   };
 

@@ -30,6 +30,7 @@ describe("platform integration gate", () => {
   it("allows explicit local_dev mode without claiming production", async () => {
     delete process.env.FINDTENX_API_URL;
     process.env.PLATFORM_DATA_MODE = "local_dev";
+    Object.defineProperty(process.env, "NODE_ENV", { value: "development", configurable: true });
 
     const { resolvePlatformAccess } = await import("@/lib/integrations/platform");
     const access = await resolvePlatformAccess();
@@ -38,6 +39,17 @@ describe("platform integration gate", () => {
       expect(access.authority).toBe("admin_local_dev");
       expect(access.production).toBe(false);
     }
+  });
+
+  it("refuses local_dev in production builds without ALLOW_LOCAL_PLATFORM_DATA", async () => {
+    delete process.env.FINDTENX_API_URL;
+    process.env.PLATFORM_DATA_MODE = "local_dev";
+    Object.defineProperty(process.env, "NODE_ENV", { value: "production", configurable: true });
+    delete process.env.ALLOW_LOCAL_PLATFORM_DATA;
+
+    const { resolvePlatformAccess } = await import("@/lib/integrations/platform");
+    const access = await resolvePlatformAccess();
+    expect(access.ok).toBe(false);
   });
 
   it("reports Core as not configured in probe", async () => {

@@ -87,13 +87,60 @@ export async function GET(request: Request) {
     case "tickets":
       return NextResponse.json(withAuthority(access, { items: listTickets() }));
     case "notifications":
-      return NextResponse.json(withAuthority(access, { items: staticCatalog.notifications }));
+      if (access.authority !== "admin_local_dev") {
+        return NextResponse.json(
+          withAuthority(access, {
+            items: [],
+            incomplete: true,
+            reason:
+              "Notification campaigns require FindTenX Core communications APIs. Not serving seed campaign statistics as production.",
+          }),
+        );
+      }
+      return NextResponse.json(
+        withAuthority(access, {
+          items: staticCatalog.notifications,
+          sample: true,
+          reason: "local_dev sample campaigns only — not production delivery metrics.",
+        }),
+      );
     case "promotions":
-      return NextResponse.json(withAuthority(access, { items: staticCatalog.promotions }));
+      if (access.authority !== "admin_local_dev") {
+        return NextResponse.json(
+          withAuthority(access, {
+            items: [],
+            incomplete: true,
+            reason:
+              "Promotions and campaign revenue require FindTenX Core. Seed marketing figures are not shown as production.",
+          }),
+        );
+      }
+      return NextResponse.json(
+        withAuthority(access, {
+          items: staticCatalog.promotions,
+          sample: true,
+          reason: "local_dev sample promotions only — not production revenue.",
+        }),
+      );
     case "plans":
       return NextResponse.json(withAuthority(access, { items: staticCatalog.plans }));
     case "discovery":
-      return NextResponse.json(withAuthority(access, { config: staticCatalog.discovery }));
+      if (access.authority !== "admin_local_dev") {
+        return NextResponse.json(
+          withAuthority(access, {
+            config: null,
+            incomplete: true,
+            reason: "Discovery matching configuration is owned by FindTenX Core.",
+          }),
+        );
+      }
+      return NextResponse.json(
+        withAuthority(access, {
+          config: staticCatalog.discovery,
+          sample: true,
+          reason: "local_dev sample discovery weights — not live Core matching config.",
+        }),
+      );
     case "admins":
       return NextResponse.json(withAuthority(access, { items: listAdmins() }));
     case "settings":

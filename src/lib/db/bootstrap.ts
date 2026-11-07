@@ -7,7 +7,6 @@ import {
   conversations as seedConversations,
   likes as seedLikes,
   matches as seedMatches,
-  overviewMetrics,
   reports as seedReports,
   settings,
   subscriptions as seedSubs,
@@ -276,9 +275,7 @@ export function ensureAdminDatabase() {
       .values({ id: "default", json: JSON.stringify(settings), updatedAt: now })
       .run();
 
-    db.insert(tables.metricSnapshots)
-      .values({ id: "current", json: JSON.stringify(overviewMetrics), updatedAt: now })
-      .run();
+    // Do not persist seed overviewMetrics snapshots — overview always computes from tables.
 
     sqlite
       .prepare(

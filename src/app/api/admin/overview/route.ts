@@ -2,18 +2,10 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { can } from "@/lib/permissions";
 import { getDataSourceMeta } from "@/lib/db/bootstrap";
-import {
-  dashboardBadges,
-  getOverviewFromDb,
-  recentAudit,
-} from "@/lib/db/queries";
-import {
-  engagementSeries,
-  recentActivity,
-  revenueSeries,
-  userGrowth,
-} from "@/lib/data/seed";
+import { getComputedOverviewBundle } from "@/lib/db/analytics";
+import { dashboardBadges } from "@/lib/db/queries";
 import { requirePlatformAccess, withAuthority } from "@/lib/integrations/require-platform";
+import { tryFetchCoreOverview } from "@/lib/integrations/core-overview";
 
 export async function GET() {
   const session = await getSession();
@@ -25,20 +17,46 @@ export async function GET() {
   const gate = await requirePlatformAccess();
   if (gate.error) return gate.error;
   const { access } = gate;
-
-  const metrics = getOverviewFromDb();
   const meta = getDataSourceMeta();
-  const useLocalSeries = access.authority === "admin_local_dev";
 
+  if (access.authority === "findtenx-core") {
+    const core = await tryFetchCoreOverview();
+    if (!core.ok) {
+      return NextResponse.json(
+        {
+          error: core.error,
+          code: "CORE_OVERVIEW_UNMAPPED",
+          authority: access.authority,
+          production: true,
+        },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json(
+      withAuthority(access, {
+        metrics: core.metrics,
+        breakdowns: core.breakdowns,
+        badges: dashboardBadges(),
+        growth: core.breakdowns.growth ?? [],
+        engagement: core.breakdowns.engagement ?? [],
+        revenue: core.breakdowns.revenueSeries ?? [],
+        activity: core.breakdowns.activity ?? [],
+        dataSource: meta,
+        corePath: core.path,
+      }),
+    );
+  }
+
+  const bundle = getComputedOverviewBundle();
   return NextResponse.json(
     withAuthority(access, {
-      metrics,
+      metrics: bundle.metrics,
+      breakdowns: bundle.breakdowns,
       badges: dashboardBadges(),
-      growth: useLocalSeries ? userGrowth : [],
-      engagement: useLocalSeries ? engagementSeries : [],
-      revenue: useLocalSeries ? revenueSeries : [],
-      activity: useLocalSeries ? recentActivity : [],
-      audit: recentAudit(10),
+      growth: bundle.breakdowns.growth,
+      engagement: bundle.breakdowns.engagement,
+      revenue: bundle.breakdowns.revenueSeries,
+      activity: bundle.breakdowns.activity,
       dataSource: meta,
     }),
   );

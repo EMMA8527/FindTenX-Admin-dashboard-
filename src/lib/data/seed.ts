@@ -236,33 +236,21 @@ function buildUsers(): PlatformUser[] {
 
 export const users = buildUsers();
 
+/** Legacy seed snapshot — never used for dashboard KPIs (always table-computed or Core). */
 export const overviewMetrics: OverviewMetrics = {
-  totalUsers: 482317,
-  activeUsers: 67892,
-  newRegistrations: 9736,
-  verifiedUsers: 318540,
-  pendingVerifications: 128,
-  totalMatches: 419762,
-  totalLikes: 2493118,
-  totalConversations: 286441,
-  premiumSubscribers: 126408,
-  totalRevenue: 1248320,
-  pendingReports: 36,
-  suspendedAccounts: 1842,
-  changes: {
-    totalUsers: 12.6,
-    activeUsers: 18.4,
-    newRegistrations: 14.2,
-    verifiedUsers: 20.1,
-    pendingVerifications: -8.3,
-    totalMatches: 19.5,
-    totalLikes: 22.7,
-    totalConversations: 15.8,
-    premiumSubscribers: 16.9,
-    totalRevenue: 24.3,
-    pendingReports: -11.2,
-    suspendedAccounts: 3.4,
-  },
+  totalUsers: 0,
+  activeUsers: 0,
+  newRegistrations: 0,
+  verifiedUsers: 0,
+  pendingVerifications: 0,
+  totalMatches: 0,
+  totalLikes: 0,
+  totalConversations: 0,
+  premiumSubscribers: 0,
+  totalRevenue: 0,
+  pendingReports: 0,
+  suspendedAccounts: 0,
+  changes: {},
 };
 
 export const userGrowth = Array.from({ length: 31 }, (_, i) => {

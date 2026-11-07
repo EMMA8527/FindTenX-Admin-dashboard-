@@ -1,66 +1,52 @@
 "use client";
 
-import { useState } from "react";
-import { toast } from "sonner";
+import { IntegrationBanner } from "@/components/shared/integration-banner";
+import { ModuleStatus } from "@/components/shared/module-status";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { admins } from "@/lib/data/seed";
-import { formatDateTime } from "@/lib/format";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useCatalog } from "@/hooks/use-catalog";
 import { formatRole } from "@/lib/roles";
-import { permissionsFor } from "@/lib/permissions";
+import { formatDateTime } from "@/lib/format";
+import type { AdminUser } from "@/lib/types";
+import { toast } from "sonner";
 
 export default function StaffPage() {
-  const [staff] = useState(admins);
-  const [selected, setSelected] = useState(admins[0].id);
-  const current = staff.find((s) => s.id === selected)!;
+  const { data, loading, error, authority, notice } = useCatalog<{ items: AdminUser[] }>("admins");
+  const admins = data?.items ?? [];
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Admin Staff & Permissions"
-        description="Create administrator accounts, assign roles, and review granular permissions."
+        description="Role-based administrator directory. Production IAM remains FindTenX Core once connected."
         actions={
           <Button
             className="brand-gradient border-0 text-white"
-            onClick={() =>
-              toast.message("Invite flow ready", {
-                description: "Super Admins can provision staff without self-elevation.",
-              })
-            }
+            onClick={() => toast.message("Staff invites require Core IAM once credentials are available.")}
           >
-            Invite administrator
+            Invite admin
           </Button>
         }
       />
-      <div className="grid gap-4 xl:grid-cols-5">
-        <div className="glass-card overflow-hidden xl:col-span-3">
+      <ModuleStatus loading={loading} error={error} authority={authority} notice={notice}>
+        <IntegrationBanner authority={authority} message={notice || "Staff directory authority"} />
+        <div className="glass-card overflow-x-auto p-4 md:p-5">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Administrator</TableHead>
+                <TableHead>Admin</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>MFA</TableHead>
-                <TableHead>Last login</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Last login</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staff.map((admin) => (
-                <TableRow
-                  key={admin.id}
-                  className="cursor-pointer"
-                  onClick={() => setSelected(admin.id)}
-                >
+              {admins.map((admin) => (
+                <TableRow key={admin.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar>
@@ -74,34 +60,17 @@ export default function StaffPage() {
                     </div>
                   </TableCell>
                   <TableCell>{formatRole(admin.role)}</TableCell>
-                  <TableCell>{admin.mfaEnabled ? "Enabled" : "Optional"}</TableCell>
-                  <TableCell>{formatDateTime(admin.lastLoginAt)}</TableCell>
+                  <TableCell>{admin.mfaEnabled ? "Enabled" : "Disabled"}</TableCell>
                   <TableCell>
                     <StatusBadge value={admin.status} />
                   </TableCell>
+                  <TableCell>{admin.lastLoginAt ? formatDateTime(admin.lastLoginAt) : "—"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
-        <div className="glass-card p-5 xl:col-span-2">
-          <h2 className="text-base font-semibold">{current.name}</h2>
-          <p className="text-sm text-muted-foreground">{formatRole(current.role)}</p>
-          <p className="mt-4 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Permissions
-          </p>
-          <div className="mt-3 flex max-h-80 flex-wrap gap-2 overflow-y-auto">
-            {permissionsFor(current.role).map((p) => (
-              <span key={p} className="rounded-full bg-secondary px-2.5 py-1 text-xs">
-                {p}
-              </span>
-            ))}
-          </div>
-          <p className="mt-4 text-xs text-muted-foreground">
-            Staff cannot grant themselves higher permissions. Role changes are audited.
-          </p>
-        </div>
-      </div>
+      </ModuleStatus>
     </div>
   );
 }

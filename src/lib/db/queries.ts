@@ -41,9 +41,7 @@ export function mapUser(row: typeof t.users.$inferSelect): PlatformUser {
 
 export function getOverviewFromDb(): OverviewMetrics {
   const db = assertDbReady();
-  const snap = db.select().from(t.metricSnapshots).where(eq(t.metricSnapshots.id, "current")).get();
-  if (snap) return JSON.parse(snap.json) as OverviewMetrics;
-
+  // Always compute from tables — never trust seed metric snapshots as production figures.
   const totalUsers = db.select({ c: count() }).from(t.users).get()?.c ?? 0;
   const activeUsers =
     db.select({ c: count() }).from(t.users).where(eq(t.users.accountStatus, "active")).get()?.c ?? 0;
@@ -83,6 +81,11 @@ export function getOverviewFromDb(): OverviewMetrics {
       .from(t.users)
       .where(eq(t.users.accountStatus, "suspended"))
       .get()?.c ?? 0;
+  const revenueRow = db
+    .select({ total: sql<number>`coalesce(sum(${t.transactions.amount}), 0)` })
+    .from(t.transactions)
+    .where(eq(t.transactions.status, "successful"))
+    .get();
 
   return {
     totalUsers,
@@ -94,7 +97,7 @@ export function getOverviewFromDb(): OverviewMetrics {
     totalLikes,
     totalConversations,
     premiumSubscribers,
-    totalRevenue: 0,
+    totalRevenue: Number(revenueRow?.total ?? 0),
     pendingReports,
     suspendedAccounts,
     changes: {},
