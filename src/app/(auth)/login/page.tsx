@@ -35,6 +35,11 @@ export default function LoginPage() {
         }),
       });
       const data = await res.json();
+      if (data.requiresMfaEnrollment) {
+        router.replace("/enroll-mfa");
+        router.refresh();
+        return;
+      }
       if (data.requiresMfa) {
         setRequiresMfa(true);
         return;

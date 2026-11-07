@@ -10,6 +10,14 @@ export async function requireAdmin(
   if (!session) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
+  if (session.mfaEnrollmentOnly) {
+    return {
+      error: NextResponse.json(
+        { error: "Complete MFA enrollment before accessing administrative functions." },
+        { status: 403 },
+      ),
+    };
+  }
   if (!can(session.role, permission)) {
     writeAudit({
       adminId: session.sub,

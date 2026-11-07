@@ -211,17 +211,26 @@ export function writeAudit(entry: {
 
 export function findAdminByEmail(email: string) {
   const db = assertDbReady();
-  return db
-    .select()
-    .from(t.admins)
-    .where(and(eq(t.admins.email, email.toLowerCase()), eq(t.admins.status, "active")))
-    .get() ??
+  const normalized = email.trim().toLowerCase();
+  return (
+    db.select().from(t.admins).where(eq(t.admins.email, normalized)).get() ??
     db
       .select()
       .from(t.admins)
-      .where(eq(t.admins.status, "active"))
       .all()
-      .find((a) => a.email.toLowerCase() === email.toLowerCase());
+      .find((a) => a.email.toLowerCase() === normalized)
+  );
+}
+
+export function findActiveAdminByEmail(email: string) {
+  const row = findAdminByEmail(email);
+  if (!row || row.status !== "active") return undefined;
+  return row;
+}
+
+export function findAdminById(id: string) {
+  const db = assertDbReady();
+  return db.select().from(t.admins).where(eq(t.admins.id, id)).get();
 }
 
 export function touchAdminLogin(adminId: string) {
@@ -230,6 +239,104 @@ export function touchAdminLogin(adminId: string) {
     .set({ lastLoginAt: new Date().toISOString() })
     .where(eq(t.admins.id, adminId))
     .run();
+}
+
+export function setAdminPasswordHash(adminId: string, passwordHash: string) {
+  const db = assertDbReady();
+  const now = new Date().toISOString();
+  db.update(t.admins)
+    .set({
+      passwordHash,
+      activatedAt: now,
+    })
+    .where(eq(t.admins.id, adminId))
+    .run();
+}
+
+export function setAdminStatus(adminId: string, status: "active" | "inactive") {
+  const db = assertDbReady();
+  db.update(t.admins).set({ status }).where(eq(t.admins.id, adminId)).run();
+}
+
+export function beginAdminMfaEnrollment(adminId: string, pendingSecretEnc: string) {
+  const db = assertDbReady();
+  db.update(t.admins)
+    .set({ mfaPendingSecretEnc: pendingSecretEnc })
+    .where(eq(t.admins.id, adminId))
+    .run();
+}
+
+export function completeAdminMfaEnrollment(
+  adminId: string,
+  secretEnc: string,
+  recoveryHashes: string[],
+) {
+  const db = assertDbReady();
+  const now = new Date().toISOString();
+  db.update(t.admins)
+    .set({
+      mfaSecretEnc: secretEnc,
+      mfaPendingSecretEnc: null,
+      mfaRecoveryHashesJson: JSON.stringify(recoveryHashes),
+      mfaEnabled: true,
+      mfaEnrolledAt: now,
+    })
+    .where(eq(t.admins.id, adminId))
+    .run();
+}
+
+export function clearAdminMfa(adminId: string) {
+  const db = assertDbReady();
+  db.update(t.admins)
+    .set({
+      mfaSecretEnc: null,
+      mfaPendingSecretEnc: null,
+      mfaRecoveryHashesJson: "[]",
+      mfaEnabled: false,
+      mfaEnrolledAt: null,
+    })
+    .where(eq(t.admins.id, adminId))
+    .run();
+}
+
+export function consumeAdminRecoveryCode(adminId: string, remainingHashes: string[]) {
+  const db = assertDbReady();
+  db.update(t.admins)
+    .set({ mfaRecoveryHashesJson: JSON.stringify(remainingHashes) })
+    .where(eq(t.admins.id, adminId))
+    .run();
+}
+
+export function createAdminAccount(input: {
+  id: string;
+  email: string;
+  name: string;
+  role: AdminRole;
+  avatar?: string;
+  status?: "active" | "inactive";
+}) {
+  const db = assertDbReady();
+  const now = new Date().toISOString();
+  db.insert(t.admins)
+    .values({
+      id: input.id,
+      email: input.email.trim().toLowerCase(),
+      name: input.name,
+      role: input.role,
+      avatar: input.avatar || "",
+      passwordHash: null,
+      mfaSecretEnc: null,
+      mfaRecoveryHashesJson: "[]",
+      mfaPendingSecretEnc: null,
+      mfaEnabled: false,
+      mfaEnrolledAt: null,
+      status: input.status || "inactive",
+      activatedAt: null,
+      lastLoginAt: null,
+      createdAt: now,
+    })
+    .run();
+  return findAdminById(input.id);
 }
 
 export function listTable(name: keyof typeof t, limit = 100) {

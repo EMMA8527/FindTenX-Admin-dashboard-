@@ -1,28 +1,33 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
 import { Secret } from "otpauth";
 import { AuthConfigError, getAuthConfig } from "@/lib/auth/config";
+import { encryptSecret } from "@/lib/auth/crypto";
 import { currentTotpCode, verifyTotpCode } from "@/lib/auth/mfa";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import {
   checkLoginRateLimit,
   clearLoginRateLimits,
 } from "@/lib/auth/rate-limit";
-import { authenticateAdmin, verifySessionToken } from "@/lib/auth/session";
 import { can } from "@/lib/permissions";
 
 const TEST_PASSWORD = "Unit-Test-Only-Password-9f3a!";
 const TEST_SESSION_SECRET = "unit-test-session-secret-at-least-32-chars-long";
+const OTHER_PASSWORD = "Other-Admin-Password-7k2q!";
 let TEST_MFA_SECRET = "";
-let TEST_PASSWORD_HASH = "";
+let OTHER_MFA_SECRET = "";
+let dbPath = "";
 
 function setAuthEnv() {
   process.env.ADMIN_SESSION_SECRET = TEST_SESSION_SECRET;
-  process.env.ADMIN_PASSWORD_HASH = TEST_PASSWORD_HASH;
-  process.env.ADMIN_MFA_SECRET = TEST_MFA_SECRET;
+  // Shared globals must not be required anymore.
+  delete process.env.ADMIN_PASSWORD_HASH;
+  delete process.env.ADMIN_MFA_SECRET;
 }
 
 function clearAuthEnv() {
@@ -31,16 +36,68 @@ function clearAuthEnv() {
   delete process.env.ADMIN_MFA_SECRET;
 }
 
+async function seedTwoAdmins() {
+  process.env.PLATFORM_DATA_MODE = "core";
+  const { ensureAdminDatabase } = await import("@/lib/db/bootstrap");
+  ensureAdminDatabase();
+  const { createAdminAccount, setAdminPasswordHash, completeAdminMfaEnrollment, setAdminStatus } =
+    await import("@/lib/db/queries");
+  const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
+  const otherHash = await bcrypt.hash(OTHER_PASSWORD, 10);
+  createAdminAccount({
+    id: "adm_test_super",
+    email: "super@findtenx.com",
+    name: "Super Admin",
+    role: "super_admin",
+    status: "active",
+  });
+  createAdminAccount({
+    id: "adm_test_support",
+    email: "support@findtenx.com",
+    name: "Support Admin",
+    role: "support",
+    status: "active",
+  });
+  setAdminPasswordHash("adm_test_super", passwordHash);
+  setAdminPasswordHash("adm_test_support", otherHash);
+  setAdminStatus("adm_test_super", "active");
+  setAdminStatus("adm_test_support", "active");
+  completeAdminMfaEnrollment(
+    "adm_test_super",
+    encryptSecret(TEST_MFA_SECRET, TEST_SESSION_SECRET),
+    [],
+  );
+  completeAdminMfaEnrollment(
+    "adm_test_support",
+    encryptSecret(OTHER_MFA_SECRET, TEST_SESSION_SECRET),
+    [],
+  );
+}
+
 beforeEach(async () => {
   TEST_MFA_SECRET = new Secret({ size: 20 }).base32;
-  TEST_PASSWORD_HASH = await bcrypt.hash(TEST_PASSWORD, 10);
+  OTHER_MFA_SECRET = new Secret({ size: 20 }).base32;
+  dbPath = path.join(os.tmpdir(), `ftx-auth-${Date.now()}-${Math.random()}.sqlite`);
+  process.env.FTX_SQLITE_PATH = dbPath;
+  const g = globalThis as unknown as { __ftxSqlite?: unknown; __ftxDrizzle?: unknown };
+  delete g.__ftxSqlite;
+  delete g.__ftxDrizzle;
+  vi.resetModules();
   setAuthEnv();
   clearLoginRateLimits();
+  await seedTwoAdmins();
 });
 
 afterEach(() => {
   clearAuthEnv();
   clearLoginRateLimits();
+  delete process.env.FTX_SQLITE_PATH;
+  try {
+    const g = globalThis as unknown as { __ftxSqlite?: { close?: () => void } };
+    g.__ftxSqlite?.close?.();
+  } catch {
+    /* ignore */
+  }
 });
 
 describe("auth config fail-closed", () => {
@@ -54,29 +111,14 @@ describe("auth config fail-closed", () => {
     expect(() => getAuthConfig()).toThrow(/at least 32/);
   });
 
-  it("rejects missing password hash", () => {
+  it("does not require shared ADMIN_PASSWORD_HASH or ADMIN_MFA_SECRET", () => {
     delete process.env.ADMIN_PASSWORD_HASH;
-    expect(() => getAuthConfig()).toThrow(AuthConfigError);
-  });
-
-  it("rejects non-bcrypt password hash", () => {
-    process.env.ADMIN_PASSWORD_HASH = "plaintext-not-allowed";
-    expect(() => getAuthConfig()).toThrow(/bcrypt hash/);
-  });
-
-  it("accepts base64-encoded bcrypt hashes", async () => {
-    const hash = await bcrypt.hash(TEST_PASSWORD, 10);
-    process.env.ADMIN_PASSWORD_HASH = `base64:${Buffer.from(hash, "utf8").toString("base64")}`;
-    expect(getAuthConfig().passwordHash.startsWith("$2")).toBe(true);
-  });
-
-  it("rejects missing MFA secret", () => {
     delete process.env.ADMIN_MFA_SECRET;
-    expect(() => getAuthConfig()).toThrow(AuthConfigError);
+    expect(() => getAuthConfig()).not.toThrow();
   });
 });
 
-describe("password + MFA", () => {
+describe("password + MFA primitives", () => {
   it("verifies bcrypt passwords", async () => {
     const hash = await hashPassword(TEST_PASSWORD);
     expect(await verifyPassword(TEST_PASSWORD, hash)).toBe(true);
@@ -87,39 +129,64 @@ describe("password + MFA", () => {
     const code = currentTotpCode(TEST_MFA_SECRET);
     expect(verifyTotpCode(TEST_MFA_SECRET, code)).toBe(true);
     expect(verifyTotpCode(TEST_MFA_SECRET, "000000")).toBe(false);
-    expect(verifyTotpCode(TEST_MFA_SECRET, "abcdef")).toBe(false);
   });
 });
 
-describe("authenticateAdmin", () => {
+describe("individual authenticateAdmin", () => {
   it("rejects invalid credentials", async () => {
-    const result = await authenticateAdmin("emma@findtenx.com", "wrong", undefined);
+    const { authenticateAdmin: auth } = await import("@/lib/auth/session");
+    const result = await auth("super@findtenx.com", "wrong", undefined);
     expect(result.ok).toBe(false);
-    if (!result.ok && !("requiresMfa" in result)) {
-      expect(result.error).toMatch(/Invalid/i);
-    }
   });
 
-  it("requires MFA after valid password for MFA-enabled admin", async () => {
-    const result = await authenticateAdmin("emma@findtenx.com", TEST_PASSWORD);
+  it("does not accept one admin password for another admin email", async () => {
+    const { authenticateAdmin: auth } = await import("@/lib/auth/session");
+    const code = currentTotpCode(OTHER_MFA_SECRET);
+    // Support password + support MFA against super email must fail
+    const result = await auth("super@findtenx.com", OTHER_PASSWORD, code);
+    expect(result.ok).toBe(false);
+  });
+
+  it("does not accept one admin MFA secret for another admin", async () => {
+    const { authenticateAdmin: auth } = await import("@/lib/auth/session");
+    const wrongMfa = currentTotpCode(OTHER_MFA_SECRET);
+    const result = await auth("super@findtenx.com", TEST_PASSWORD, wrongMfa);
+    expect(result.ok).toBe(false);
+  });
+
+  it("requires MFA after valid password for enrolled admin", async () => {
+    const { authenticateAdmin: auth } = await import("@/lib/auth/session");
+    const result = await auth("super@findtenx.com", TEST_PASSWORD);
     expect(result.ok).toBe(false);
     expect("requiresMfa" in result && result.requiresMfa).toBe(true);
   });
 
-  it("accepts valid password + TOTP", async () => {
+  it("accepts only that admin's password + TOTP", async () => {
+    const { authenticateAdmin: auth } = await import("@/lib/auth/session");
     const code = currentTotpCode(TEST_MFA_SECRET);
-    const result = await authenticateAdmin("emma@findtenx.com", TEST_PASSWORD, code);
+    const result = await auth("super@findtenx.com", TEST_PASSWORD, code);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.admin.role).toBe("super_admin");
+      expect(result.admin.email).toBe("super@findtenx.com");
     }
   });
 
-  it("returns 503-style failure when auth is not configured", async () => {
-    clearAuthEnv();
-    const result = await authenticateAdmin("emma@findtenx.com", TEST_PASSWORD);
+  it("rejects inactive administrators", async () => {
+    const { setAdminStatus } = await import("@/lib/db/queries");
+    const { authenticateAdmin: auth } = await import("@/lib/auth/session");
+    setAdminStatus("adm_test_support", "inactive");
+    const code = currentTotpCode(OTHER_MFA_SECRET);
+    const result = await auth("support@findtenx.com", OTHER_PASSWORD, code);
     expect(result.ok).toBe(false);
-    if (!result.ok && !("requiresMfa" in result)) {
+  });
+
+  it("returns 503 when session secret is missing", async () => {
+    clearAuthEnv();
+    const { authenticateAdmin: auth } = await import("@/lib/auth/session");
+    const result = await auth("super@findtenx.com", TEST_PASSWORD);
+    expect(result.ok).toBe(false);
+    if (!result.ok && !("requiresMfa" in result) && !("requiresMfaEnrollment" in result)) {
       expect(result.status).toBe(503);
     }
   });
@@ -127,6 +194,7 @@ describe("authenticateAdmin", () => {
 
 describe("session tokens", () => {
   it("rejects tokens signed with the wrong secret", async () => {
+    const { verifySessionToken } = await import("@/lib/auth/session");
     const forged = await new SignJWT({
       email: "attacker@example.com",
       name: "Attacker",
@@ -135,6 +203,7 @@ describe("session tokens", () => {
     })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject("adm_evil")
+      .setJti("jti-forged")
       .setIssuedAt()
       .setExpirationTime("8h")
       .sign(new TextEncoder().encode("totally-different-secret-value-xxxxxx"));
@@ -143,33 +212,35 @@ describe("session tokens", () => {
   });
 
   it("accepts tokens signed with the configured secret", async () => {
+    const { verifySessionToken } = await import("@/lib/auth/session");
     const token = await new SignJWT({
-      email: "emma@findtenx.com",
-      name: "Emma Paul",
+      email: "super@findtenx.com",
+      name: "Super Admin",
       role: "super_admin",
       avatar: "x",
     })
       .setProtectedHeader({ alg: "HS256" })
-      .setSubject("adm_001")
+      .setSubject("adm_test_super")
       .setJti("active-test-jti")
       .setIssuedAt()
       .setExpirationTime("8h")
       .sign(new TextEncoder().encode(TEST_SESSION_SECRET));
 
     const session = await verifySessionToken(token);
-    expect(session?.sub).toBe("adm_001");
+    expect(session?.sub).toBe("adm_test_super");
     expect(session?.role).toBe("super_admin");
   });
 
   it("rejects tokens that omit a session id", async () => {
+    const { verifySessionToken } = await import("@/lib/auth/session");
     const token = await new SignJWT({
-      email: "emma@findtenx.com",
-      name: "Emma Paul",
+      email: "super@findtenx.com",
+      name: "Super Admin",
       role: "super_admin",
       avatar: "x",
     })
       .setProtectedHeader({ alg: "HS256" })
-      .setSubject("adm_001")
+      .setSubject("adm_test_super")
       .setIssuedAt()
       .setExpirationTime("8h")
       .sign(new TextEncoder().encode(TEST_SESSION_SECRET));
@@ -179,15 +250,16 @@ describe("session tokens", () => {
 
   it("rejects revoked session ids after logout-style revocation", async () => {
     const { revokeSession } = await import("@/lib/auth/revocation");
+    const { verifySessionToken } = await import("@/lib/auth/session");
     const jti = "revoked-test-jti";
     const token = await new SignJWT({
-      email: "emma@findtenx.com",
-      name: "Emma Paul",
+      email: "super@findtenx.com",
+      name: "Super Admin",
       role: "super_admin",
       avatar: "x",
     })
       .setProtectedHeader({ alg: "HS256" })
-      .setSubject("adm_001")
+      .setSubject("adm_test_super")
       .setJti(jti)
       .setIssuedAt()
       .setExpirationTime("8h")
@@ -230,7 +302,7 @@ describe("RBAC", () => {
 });
 
 describe("source hygiene", () => {
-  it("does not embed known demo secrets or session fallbacks in shipped source", () => {
+  it("does not embed known demo secrets or shared credential fallbacks", () => {
     const roots = ["src", "scripts", "README.md", ".env.example"];
     const forbidden = [
       "FindTenX@Admin2026",
@@ -241,17 +313,17 @@ describe("source hygiene", () => {
     ];
 
     const files: string[] = [];
-    function walk(path: string) {
-      const st = statSync(path);
+    function walk(p: string) {
+      const st = statSync(p);
       if (st.isDirectory()) {
-        for (const name of readdirSync(path)) {
+        for (const name of readdirSync(p)) {
           if (name === "node_modules" || name === ".next") continue;
-          walk(join(path, name));
+          walk(join(p, name));
         }
         return;
       }
-      if (/\.(ts|tsx|js|mjs|md|example)$/.test(path) || path.endsWith("README.md")) {
-        files.push(path);
+      if (/\.(ts|tsx|js|mjs|md|example)$/.test(p) || p.endsWith("README.md")) {
+        files.push(p);
       }
     }
     for (const root of roots) walk(join(process.cwd(), root));

@@ -51,6 +51,8 @@ export function ensureAdminDatabase() {
   const now = new Date().toISOString();
 
   sqlite.transaction(() => {
+    // Seed admin *directory* rows only — no shared passwords or MFA secrets.
+    // Individual credentials are provisioned via scripts/provision-admin.mjs or invite/reset.
     db.insert(tables.admins)
       .values(
         seedAdmins.map((a) => ({
@@ -59,8 +61,14 @@ export function ensureAdminDatabase() {
           name: a.name,
           role: a.role,
           avatar: a.avatar,
-          mfaEnabled: a.mfaEnabled,
+          passwordHash: null,
+          mfaSecretEnc: null,
+          mfaRecoveryHashesJson: "[]",
+          mfaPendingSecretEnc: null,
+          mfaEnabled: false,
+          mfaEnrolledAt: null,
           status: a.status,
+          activatedAt: null,
           lastLoginAt: a.lastLoginAt,
           createdAt: a.createdAt,
         })),

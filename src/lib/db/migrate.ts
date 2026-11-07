@@ -10,8 +10,14 @@ export function migrateAdminDb() {
       name TEXT NOT NULL,
       role TEXT NOT NULL,
       avatar TEXT NOT NULL DEFAULT '',
-      mfa_enabled INTEGER NOT NULL DEFAULT 1,
+      password_hash TEXT,
+      mfa_secret_enc TEXT,
+      mfa_recovery_hashes_json TEXT NOT NULL DEFAULT '[]',
+      mfa_pending_secret_enc TEXT,
+      mfa_enabled INTEGER NOT NULL DEFAULT 0,
+      mfa_enrolled_at TEXT,
       status TEXT NOT NULL DEFAULT 'active',
+      activated_at TEXT,
       last_login_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -192,4 +198,39 @@ export function migrateAdminDb() {
       value TEXT NOT NULL
     );
   `);
+
+  ensureAdminCredentialColumns(db);
+}
+
+function columnExists(db: ReturnType<typeof getSqlite>, table: string, column: string) {
+  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  return rows.some((r) => r.name === column);
+}
+
+function ensureAdminCredentialColumns(db: ReturnType<typeof getSqlite>) {
+  const adds: Array<[string, string]> = [
+    ["password_hash", "TEXT"],
+    ["mfa_secret_enc", "TEXT"],
+    ["mfa_recovery_hashes_json", "TEXT NOT NULL DEFAULT '[]'"],
+    ["mfa_pending_secret_enc", "TEXT"],
+    ["mfa_enrolled_at", "TEXT"],
+    ["activated_at", "TEXT"],
+  ];
+  for (const [name, type] of adds) {
+    if (!columnExists(db, "admins", name)) {
+      db.exec(`ALTER TABLE admins ADD COLUMN ${name} ${type}`);
+    }
+  }
+  // Existing rows should not keep a misleading shared-MFA "enabled" flag without a per-admin secret.
+  // Only flip enabled→disabled when no secret is stored yet.
+  try {
+    db.exec(`
+      UPDATE admins
+      SET mfa_enabled = 0
+      WHERE (mfa_secret_enc IS NULL OR mfa_secret_enc = '')
+        AND mfa_enabled = 1
+    `);
+  } catch {
+    /* older DBs without column already handled above */
+  }
 }

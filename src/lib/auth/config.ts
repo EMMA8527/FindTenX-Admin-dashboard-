@@ -1,7 +1,7 @@
 /**
  * Server-only authentication configuration.
- * Secrets must come from environment variables / a secrets manager.
- * Missing or weak values fail closed — never fall back to embedded defaults.
+ * Session signing secret comes from the environment / secrets manager.
+ * Per-admin passwords and MFA secrets live in the admin database — never as shared globals.
  */
 
 export class AuthConfigError extends Error {
@@ -29,25 +29,10 @@ function readRequired(name: string): string {
   return value;
 }
 
-/**
- * Accepts a raw bcrypt hash, or `base64:<encoded-hash>` to avoid dotenv `$` expansion issues.
- */
-export function normalizePasswordHash(raw: string): string {
-  const value = raw.trim();
-  if (value.startsWith("base64:")) {
-    try {
-      return Buffer.from(value.slice("base64:".length), "base64").toString("utf8");
-    } catch {
-      throw new AuthConfigError("ADMIN_PASSWORD_HASH base64 payload is invalid.");
-    }
-  }
-  return value;
-}
-
 export type AuthConfig = {
   sessionSecret: Uint8Array;
-  passwordHash: string;
-  mfaSecret: string;
+  /** Raw session secret string — also derives MFA-at-rest encryption. */
+  sessionSecretRaw: string;
 };
 
 export function getAuthConfig(): AuthConfig {
@@ -58,25 +43,25 @@ export function getAuthConfig(): AuthConfig {
     );
   }
 
-  const passwordHash = normalizePasswordHash(readRequired("ADMIN_PASSWORD_HASH"));
-  if (!passwordHash.startsWith("$2")) {
-    throw new AuthConfigError(
-      "ADMIN_PASSWORD_HASH must be a bcrypt hash or base64:<bcrypt-hash> from the setup script.",
-    );
-  }
-
-  const mfaSecret = readRequired("ADMIN_MFA_SECRET");
-  if (mfaSecret.length < 16) {
-    throw new AuthConfigError("ADMIN_MFA_SECRET must be a strong TOTP secret (min 16 characters).");
-  }
-
   return {
     sessionSecret: new TextEncoder().encode(sessionSecretRaw),
-    passwordHash,
-    mfaSecret,
+    sessionSecretRaw,
   };
 }
 
 export function assertAuthConfigured(): void {
   getAuthConfig();
+}
+
+/** @deprecated Shared global password hashes are no longer used. Kept for migration messaging only. */
+export function normalizePasswordHash(raw: string): string {
+  const value = raw.trim();
+  if (value.startsWith("base64:")) {
+    try {
+      return Buffer.from(value.slice("base64:".length), "base64").toString("utf8");
+    } catch {
+      throw new AuthConfigError("Password hash base64 payload is invalid.");
+    }
+  }
+  return value;
 }

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicPaths = ["/login", "/forgot-password"];
+const publicPaths = ["/login", "/forgot-password", "/reset-password", "/enroll-mfa"];
 const SESSION_COOKIE = "ftx_admin_session";
+const MFA_ENROLL_COOKIE = "ftx_mfa_enroll";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = request.cookies.get(SESSION_COOKIE)?.value;
+  const enrollOnly = request.cookies.get(MFA_ENROLL_COOKIE)?.value === "1";
 
   if (pathname.startsWith("/api/")) {
     const publicApi =
@@ -21,9 +23,27 @@ export function middleware(request: NextRequest) {
       pathname === "/api/admin/health" ||
       pathname.startsWith("/api/admin/health/");
     if (publicApi) return NextResponse.next();
+
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Enrollment-only sessions may only hit MFA enrollment + logout/me endpoints.
+    if (enrollOnly) {
+      const allowed =
+        pathname.startsWith("/api/admin/auth/mfa/enroll") ||
+        pathname === "/api/admin/auth/logout" ||
+        pathname === "/api/auth/logout" ||
+        pathname === "/api/admin/auth/me" ||
+        pathname === "/api/auth/me";
+      if (!allowed) {
+        return NextResponse.json(
+          { error: "Complete MFA enrollment before accessing administrative APIs." },
+          { status: 403 },
+        );
+      }
+    }
+
     return NextResponse.next();
   }
 
@@ -40,7 +60,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (session && (pathname === "/login" || pathname === "/forgot-password")) {
+  if (session && enrollOnly && pathname !== "/enroll-mfa" && !pathname.startsWith("/enroll-mfa/")) {
+    if (pathname === "/login" || pathname === "/forgot-password") {
+      return NextResponse.next();
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = "/enroll-mfa";
+    return NextResponse.redirect(url);
+  }
+
+  if (session && !enrollOnly && (pathname === "/login" || pathname === "/forgot-password" || pathname === "/enroll-mfa")) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

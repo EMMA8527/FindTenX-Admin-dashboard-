@@ -1,14 +1,16 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { checkLoginRateLimit } from "@/lib/auth/rate-limit";
+import { hashPassword } from "@/lib/auth/password";
 import { assertDbReady } from "@/lib/db/bootstrap";
 import { passwordResetTokens } from "@/lib/db/schema";
-import { findAdminByEmail, writeAudit } from "@/lib/db/queries";
-import { checkLoginRateLimit } from "@/lib/auth/rate-limit";
+import { clearAdminMfa, findAdminByEmail, findAdminById, setAdminPasswordHash, writeAudit } from "@/lib/db/queries";
+import type { AdminRole } from "@/lib/types";
 
 /**
- * Issues a password-reset token hash for an administrator.
- * The raw token is never logged. Delivery to email requires an email provider secret.
+ * Issues a password-reset token for an individual administrator.
+ * Completing the reset sets that admin's own password hash (never a shared global secret).
  */
 export async function POST(request: Request) {
   const key = `reset:${request.headers.get("x-forwarded-for") || "unknown"}`;
@@ -22,7 +24,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Email is required." }, { status: 400 });
   }
 
-  // Always return a generic response to avoid account enumeration.
   const generic = {
     ok: true,
     message:
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   };
 
   const admin = findAdminByEmail(body.email);
-  if (!admin) return NextResponse.json(generic);
+  if (!admin || admin.status !== "active") return NextResponse.json(generic);
 
   const rawToken = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   const db = assertDbReady();
   db.insert(passwordResetTokens)
     .values({
-      id: `prt_${Date.now()}`,
+      id: `prt_${Date.now()}_${randomBytes(4).toString("hex")}`,
       adminId: admin.id,
       tokenHash,
       expiresAt,
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
   writeAudit({
     adminId: admin.id,
     adminName: admin.name,
-    adminRole: admin.role,
+    adminRole: admin.role as AdminRole,
     action: "Password reset token issued",
     target: admin.id,
     result: "success",
@@ -56,7 +57,6 @@ export async function POST(request: Request) {
     ip: "127.0.0.1",
   });
 
-  // Development-only: return token when explicitly enabled. Never in production.
   if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_RESET_TOKEN === "1") {
     return NextResponse.json({ ...generic, devToken: rawToken, expiresAt });
   }
@@ -67,13 +67,15 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   const body = (await request.json().catch(() => ({}))) as {
     token?: string;
-    passwordHash?: string;
+    password?: string;
   };
-  // Completing reset requires rotating ADMIN_PASSWORD_HASH via secrets manager in this architecture.
-  // Accept token validation only; password rotation is an ops secret change.
-  if (!body.token) {
-    return NextResponse.json({ error: "Token is required." }, { status: 400 });
+  if (!body.token || !body.password) {
+    return NextResponse.json({ error: "Token and new password are required." }, { status: 400 });
   }
+  if (body.password.length < 12) {
+    return NextResponse.json({ error: "Password must be at least 12 characters." }, { status: 400 });
+  }
+
   const tokenHash = createHash("sha256").update(body.token).digest("hex");
   const db = assertDbReady();
   const row = db
@@ -84,13 +86,35 @@ export async function PUT(request: Request) {
   if (!row || row.usedAt || new Date(row.expiresAt).getTime() < Date.now()) {
     return NextResponse.json({ error: "Invalid or expired token." }, { status: 400 });
   }
+
+  const admin = findAdminById(row.adminId);
+  if (!admin) {
+    return NextResponse.json({ error: "Invalid or expired token." }, { status: 400 });
+  }
+
+  const passwordHash = await hashPassword(body.password);
+  setAdminPasswordHash(admin.id, passwordHash);
+  // Force MFA re-enrollment after password recovery for account safety.
+  clearAdminMfa(admin.id);
+
   db.update(passwordResetTokens)
     .set({ usedAt: new Date().toISOString() })
     .where(eq(passwordResetTokens.id, row.id))
     .run();
+
+  writeAudit({
+    adminId: admin.id,
+    adminName: admin.name,
+    adminRole: admin.role as AdminRole,
+    action: "Password reset completed",
+    target: admin.id,
+    result: "success",
+    reason: "Per-admin password rotated; MFA cleared for re-enrollment",
+    ip: "127.0.0.1",
+  });
+
   return NextResponse.json({
     ok: true,
-    message:
-      "Reset token validated. Rotate ADMIN_PASSWORD_HASH in your secrets manager, then sign in with the new password.",
+    message: "Password updated for this administrator. Sign in and enroll MFA again.",
   });
 }

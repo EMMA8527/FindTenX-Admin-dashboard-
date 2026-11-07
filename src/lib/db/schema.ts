@@ -7,8 +7,18 @@ export const admins = sqliteTable("admins", {
   name: text("name").notNull(),
   role: text("role").notNull(),
   avatar: text("avatar").notNull().default(""),
-  mfaEnabled: integer("mfa_enabled", { mode: "boolean" }).notNull().default(true),
+  /** Per-admin bcrypt hash — never a shared global secret. */
+  passwordHash: text("password_hash"),
+  /** AES-GCM ciphertext of this admin's TOTP secret. */
+  mfaSecretEnc: text("mfa_secret_enc"),
+  /** JSON array of SHA-256 recovery code hashes. */
+  mfaRecoveryHashesJson: text("mfa_recovery_hashes_json").notNull().default("[]"),
+  /** Pending MFA secret during enrollment (encrypted). */
+  mfaPendingSecretEnc: text("mfa_pending_secret_enc"),
+  mfaEnabled: integer("mfa_enabled", { mode: "boolean" }).notNull().default(false),
+  mfaEnrolledAt: text("mfa_enrolled_at"),
   status: text("status").notNull().default("active"),
+  activatedAt: text("activated_at"),
   lastLoginAt: text("last_login_at"),
   createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });

@@ -43,6 +43,14 @@ export async function POST(request: Request) {
     const result = await authenticateAdmin(body.email, body.password, body.mfaCode);
 
     if (!result.ok) {
+      if ("requiresMfaEnrollment" in result && result.requiresMfaEnrollment) {
+        await createSession(result.admin, false, { mfaEnrollmentOnly: true });
+        resetLoginRateLimit(key);
+        return NextResponse.json({
+          requiresMfaEnrollment: true,
+          admin: { id: result.admin.id, email: result.admin.email, name: result.admin.name },
+        });
+      }
       if ("requiresMfa" in result && result.requiresMfa) {
         return NextResponse.json({ requiresMfa: true });
       }

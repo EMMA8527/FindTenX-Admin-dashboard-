@@ -150,15 +150,9 @@ export default function IntegrationsPage() {
             </p>
             <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
               <li>
-                <span className="font-medium text-foreground">ADMIN_SESSION_SECRET</span> — Admin JWT signing
-                (Admin auth)
-              </li>
-              <li>
-                <span className="font-medium text-foreground">ADMIN_PASSWORD_HASH</span> — bcrypt Admin password
-                (Admin auth)
-              </li>
-              <li>
-                <span className="font-medium text-foreground">ADMIN_MFA_SECRET</span> — TOTP MFA (Admin auth)
+                <span className="font-medium text-foreground">ADMIN_SESSION_SECRET</span> — session JWT signing
+                and MFA-at-rest encryption (Admin). Per-admin passwords/MFA live in the database — not shared
+                env secrets.
               </li>
               <li>
                 <span className="font-medium text-foreground">FINDTENX_API_URL</span> — Core base URL after{" "}

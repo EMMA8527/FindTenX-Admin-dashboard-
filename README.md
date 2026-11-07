@@ -29,14 +29,13 @@ Authentication secrets are **never** embedded in source code. The app fails clos
 
 | Variable | Purpose |
 | --- | --- |
-| `ADMIN_SESSION_SECRET` | JWT signing key (min 32 characters) |
-| `ADMIN_PASSWORD_HASH` | bcrypt hash of the admin password |
-| `ADMIN_MFA_SECRET` | Base32 TOTP secret for authenticator apps |
+| `ADMIN_SESSION_SECRET` | JWT signing key + MFA-at-rest encryption (min 32 characters) |
 
-Generate a local `.env.local` (gitignored):
+Per-admin passwords and MFA secrets are stored in the admin database — **not** as shared env vars.
 
 ```bash
 node scripts/generate-admin-secrets.mjs --write
+node scripts/provision-admin.mjs --email you@findtenx.com --name "Your Name" --role super_admin
 ```
 
 ## Backend authority
