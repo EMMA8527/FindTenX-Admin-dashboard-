@@ -159,6 +159,27 @@ describe("session tokens", () => {
     expect(session?.sub).toBe("adm_001");
     expect(session?.role).toBe("super_admin");
   });
+
+  it("rejects revoked session ids after logout-style revocation", async () => {
+    const { revokeSession } = await import("@/lib/auth/revocation");
+    const jti = "revoked-test-jti";
+    const token = await new SignJWT({
+      email: "emma@findtenx.com",
+      name: "Emma Paul",
+      role: "super_admin",
+      avatar: "x",
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject("adm_001")
+      .setJti(jti)
+      .setIssuedAt()
+      .setExpirationTime("8h")
+      .sign(new TextEncoder().encode(TEST_SESSION_SECRET));
+
+    expect(await verifySessionToken(token)).not.toBeNull();
+    revokeSession(jti, Date.now() + 60_000);
+    expect(await verifySessionToken(token)).toBeNull();
+  });
 });
 
 describe("rate limiting", () => {

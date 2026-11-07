@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { AuthConfigError, getAuthConfig } from "@/lib/auth/config";
 import { verifyTotpCode } from "@/lib/auth/mfa";
 import { verifyPassword } from "@/lib/auth/password";
+import { isSessionRevoked, revokeSession } from "@/lib/auth/revocation";
 import { appendAudit, getStore } from "@/lib/data/store";
 import type { AdminRole, AdminUser } from "@/lib/types";
 
@@ -16,6 +18,7 @@ export type SessionPayload = {
   name: string;
   role: AdminRole;
   avatar: string;
+  jti: string;
 };
 
 export type AuthResult =
@@ -33,9 +36,21 @@ function cookieOptions(maxAge: number) {
   };
 }
 
+function payloadFromJwt(payload: Record<string, unknown>): SessionPayload {
+  return {
+    sub: String(payload.sub),
+    email: String(payload.email),
+    name: String(payload.name),
+    role: payload.role as AdminRole,
+    avatar: String(payload.avatar),
+    jti: String(payload.jti ?? ""),
+  };
+}
+
 export async function createSession(admin: AdminUser, remember = false) {
   const { sessionSecret } = getAuthConfig();
   const maxAge = remember ? REMEMBER_TTL_SECONDS : SESSION_TTL_SECONDS;
+  const jti = randomUUID();
   const token = await new SignJWT({
     email: admin.email,
     name: admin.name,
@@ -44,6 +59,7 @@ export async function createSession(admin: AdminUser, remember = false) {
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(admin.id)
+    .setJti(jti)
     .setIssuedAt()
     .setExpirationTime(`${maxAge}s`)
     .sign(sessionSecret);
@@ -54,6 +70,19 @@ export async function createSession(admin: AdminUser, remember = false) {
 
 export async function destroySession() {
   const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (token) {
+    try {
+      const { sessionSecret } = getAuthConfig();
+      const { payload } = await jwtVerify(token, sessionSecret);
+      const jti = typeof payload.jti === "string" ? payload.jti : "";
+      const expMs =
+        typeof payload.exp === "number" ? payload.exp * 1000 : Date.now() + SESSION_TTL_SECONDS * 1000;
+      revokeSession(jti, expMs);
+    } catch {
+      // Cookie may already be invalid; still clear it.
+    }
+  }
   jar.set(SESSION_COOKIE, "", { ...cookieOptions(0), maxAge: 0 });
 }
 
@@ -65,13 +94,10 @@ export async function getSession(): Promise<SessionPayload | null> {
   try {
     const { sessionSecret } = getAuthConfig();
     const { payload } = await jwtVerify(token, sessionSecret);
-    return {
-      sub: String(payload.sub),
-      email: String(payload.email),
-      name: String(payload.name),
-      role: payload.role as AdminRole,
-      avatar: String(payload.avatar),
-    };
+    if (isSessionRevoked(typeof payload.jti === "string" ? payload.jti : null)) {
+      return null;
+    }
+    return payloadFromJwt(payload as Record<string, unknown>);
   } catch (error) {
     if (error instanceof AuthConfigError) return null;
     return null;
@@ -161,13 +187,10 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
   try {
     const { sessionSecret } = getAuthConfig();
     const { payload } = await jwtVerify(token, sessionSecret);
-    return {
-      sub: String(payload.sub),
-      email: String(payload.email),
-      name: String(payload.name),
-      role: payload.role as AdminRole,
-      avatar: String(payload.avatar),
-    };
+    if (isSessionRevoked(typeof payload.jti === "string" ? payload.jti : null)) {
+      return null;
+    }
+    return payloadFromJwt(payload as Record<string, unknown>);
   } catch {
     return null;
   }
